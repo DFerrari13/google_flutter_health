@@ -17,8 +17,6 @@ Spiritual successor to Fitbitter for the post-Fitbit-migration world.
 - fetch() returns ({List<T> data, GoogleHealthCredentials credentials})
 - fetch() handles token refresh automatically via isExpired + 60s buffer
 - Credentials are never stored by the library — returned to the developer
-- Always create files directly in the current working directory,
-not in any worktree or temporary folder.
 
 ## Code style
 - Dart 3 sound null safety: required + non-nullable by default
