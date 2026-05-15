@@ -31,6 +31,7 @@ library google_flutter_health;
 export 'src/connectors/google_health_connector.dart';
 export 'src/connectors/google_health_credentials.dart';
 export 'src/connectors/google_health_scopes.dart';
+export 'src/connectors/google_health_session.dart';
 export 'src/exceptions/google_health_exceptions.dart';
 export 'src/managers/google_health_data_manager.dart';
 export 'src/managers/google_health_profile_data_manager.dart';
