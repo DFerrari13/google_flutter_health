@@ -6,7 +6,7 @@ import 'package:http/testing.dart';
 import 'package:google_flutter_health/google_flutter_health.dart';
 
 void main() {
-  group('GoogleHealthStepsDataManager', () {
+  group('GoogleHealthSleepDataManager', () {
     late GoogleHealthCredentials credentials;
     late GoogleHealthCredentials expiredCredentials;
 
@@ -17,7 +17,7 @@ void main() {
         accessTokenExpirationDateTime:
             DateTime.now().toUtc().add(const Duration(hours: 1)),
         userID: 'user_123',
-        scopes: [GoogleHealthScopes.activityAndFitnessReadonly],
+        scopes: [GoogleHealthScopes.sleepReadonly],
       );
 
       expiredCredentials = GoogleHealthCredentials(
@@ -26,31 +26,32 @@ void main() {
         accessTokenExpirationDateTime:
             DateTime.now().toUtc().subtract(const Duration(hours: 1)),
         userID: 'user_123',
-        scopes: [GoogleHealthScopes.activityAndFitnessReadonly],
+        scopes: [GoogleHealthScopes.sleepReadonly],
       );
     });
 
-    test('fetch() returns parsed data points and unchanged credentials',
+    test('fetch() returns parsed sleep segments and unchanged credentials',
         () async {
       final body = jsonEncode({
         'dataPoints': [
           {
             'userId': 'user_123',
-            'startTime': '2026-01-15T00:00:00Z',
-            'value': 5000,
+            'startTime': '2026-01-15T22:00:00Z',
+            'endTime': '2026-01-16T01:00:00Z',
+            'sleepStage': 'LIGHT',
           },
           {
             'userId': 'user_123',
-            'startTime': '2026-01-16T00:00:00Z',
-            'value': 7500,
+            'startTime': '2026-01-16T01:00:00Z',
+            'endTime': '2026-01-16T03:00:00Z',
+            'sleepStage': 'DEEP',
           },
         ],
       });
 
       var endpointHit = false;
       final client = MockClient((request) async {
-        if (request.url.path ==
-            '/v4/users/me/dataTypes/steps/dataPoints:dailyRollup') {
+        if (request.url.path == '/v4/users/me/dataTypes/sleep/dataPoints') {
           endpointHit = true;
           expect(request.headers['Authorization'], 'Bearer valid_token');
           return http.Response(body, 200);
@@ -58,7 +59,7 @@ void main() {
         return http.Response('Not found', 404);
       });
 
-      final manager = GoogleHealthStepsDataManager(
+      final manager = GoogleHealthSleepDataManager(
         credentials: credentials,
         clientID: 'client_id',
         clientSecret: 'client_secret',
@@ -66,13 +67,14 @@ void main() {
       );
 
       final result = await manager.fetch(
-        GoogleHealthStepsAPIURL.day(date: DateTime(2026, 1, 15)),
+        GoogleHealthSleepAPIURL.day(date: DateTime(2026, 1, 15)),
       );
 
       expect(endpointHit, isTrue);
       expect(result.data, hasLength(2));
-      expect(result.data.first.value, 5000);
-      expect(result.data[1].value, 7500);
+      expect(result.data.first.sleepStage, 'LIGHT');
+      expect(result.data[1].sleepStage, 'DEEP');
+      expect(result.data[1].duration, const Duration(hours: 2));
       expect(result.credentials.accessToken, credentials.accessToken);
     });
 
@@ -81,7 +83,7 @@ void main() {
         return http.Response(jsonEncode({}), 200);
       });
 
-      final manager = GoogleHealthStepsDataManager(
+      final manager = GoogleHealthSleepDataManager(
         credentials: credentials,
         clientID: 'client_id',
         clientSecret: 'client_secret',
@@ -89,7 +91,7 @@ void main() {
       );
 
       final result = await manager.fetch(
-        GoogleHealthStepsAPIURL.day(date: DateTime(2026, 1, 15)),
+        GoogleHealthSleepAPIURL.day(date: DateTime(2026, 1, 15)),
       );
 
       expect(result.data, isEmpty);
@@ -110,7 +112,7 @@ void main() {
         return http.Response(dataBody, 200);
       });
 
-      final manager = GoogleHealthStepsDataManager(
+      final manager = GoogleHealthSleepDataManager(
         credentials: expiredCredentials,
         clientID: 'client_id',
         clientSecret: 'client_secret',
@@ -118,7 +120,7 @@ void main() {
       );
 
       final result = await manager.fetch(
-        GoogleHealthStepsAPIURL.day(date: DateTime(2026, 1, 15)),
+        GoogleHealthSleepAPIURL.day(date: DateTime(2026, 1, 15)),
       );
 
       expect(result.credentials.accessToken, 'new_access_token');
@@ -129,7 +131,7 @@ void main() {
         return http.Response('Unauthorized', 401);
       });
 
-      final manager = GoogleHealthStepsDataManager(
+      final manager = GoogleHealthSleepDataManager(
         credentials: credentials,
         clientID: 'client_id',
         clientSecret: 'client_secret',
@@ -138,7 +140,7 @@ void main() {
 
       expect(
         () => manager.fetch(
-          GoogleHealthStepsAPIURL.day(date: DateTime(2026, 1, 15)),
+          GoogleHealthSleepAPIURL.day(date: DateTime(2026, 1, 15)),
         ),
         throwsA(isA<GoogleHealthTokenExpiredException>()),
       );
@@ -149,7 +151,7 @@ void main() {
         return http.Response('Rate limit exceeded', 429);
       });
 
-      final manager = GoogleHealthStepsDataManager(
+      final manager = GoogleHealthSleepDataManager(
         credentials: credentials,
         clientID: 'client_id',
         clientSecret: 'client_secret',
@@ -158,7 +160,7 @@ void main() {
 
       expect(
         () => manager.fetch(
-          GoogleHealthStepsAPIURL.day(date: DateTime(2026, 1, 15)),
+          GoogleHealthSleepAPIURL.day(date: DateTime(2026, 1, 15)),
         ),
         throwsA(isA<GoogleHealthRateLimitException>()),
       );

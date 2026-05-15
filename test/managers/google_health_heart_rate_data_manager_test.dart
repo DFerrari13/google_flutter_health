@@ -6,7 +6,7 @@ import 'package:http/testing.dart';
 import 'package:google_flutter_health/google_flutter_health.dart';
 
 void main() {
-  group('GoogleHealthStepsDataManager', () {
+  group('GoogleHealthHeartRateDataManager', () {
     late GoogleHealthCredentials credentials;
     late GoogleHealthCredentials expiredCredentials;
 
@@ -17,7 +17,7 @@ void main() {
         accessTokenExpirationDateTime:
             DateTime.now().toUtc().add(const Duration(hours: 1)),
         userID: 'user_123',
-        scopes: [GoogleHealthScopes.activityAndFitnessReadonly],
+        scopes: [GoogleHealthScopes.healthMetricsReadonly],
       );
 
       expiredCredentials = GoogleHealthCredentials(
@@ -26,7 +26,7 @@ void main() {
         accessTokenExpirationDateTime:
             DateTime.now().toUtc().subtract(const Duration(hours: 1)),
         userID: 'user_123',
-        scopes: [GoogleHealthScopes.activityAndFitnessReadonly],
+        scopes: [GoogleHealthScopes.healthMetricsReadonly],
       );
     });
 
@@ -36,13 +36,13 @@ void main() {
         'dataPoints': [
           {
             'userId': 'user_123',
-            'startTime': '2026-01-15T00:00:00Z',
-            'value': 5000,
+            'startTime': '2026-01-15T10:00:00Z',
+            'value': 68.0,
           },
           {
             'userId': 'user_123',
-            'startTime': '2026-01-16T00:00:00Z',
-            'value': 7500,
+            'startTime': '2026-01-15T10:01:00Z',
+            'value': 75.5,
           },
         ],
       });
@@ -50,7 +50,7 @@ void main() {
       var endpointHit = false;
       final client = MockClient((request) async {
         if (request.url.path ==
-            '/v4/users/me/dataTypes/steps/dataPoints:dailyRollup') {
+            '/v4/users/me/dataTypes/heart-rate/dataPoints') {
           endpointHit = true;
           expect(request.headers['Authorization'], 'Bearer valid_token');
           return http.Response(body, 200);
@@ -58,7 +58,7 @@ void main() {
         return http.Response('Not found', 404);
       });
 
-      final manager = GoogleHealthStepsDataManager(
+      final manager = GoogleHealthHeartRateDataManager(
         credentials: credentials,
         clientID: 'client_id',
         clientSecret: 'client_secret',
@@ -66,13 +66,16 @@ void main() {
       );
 
       final result = await manager.fetch(
-        GoogleHealthStepsAPIURL.day(date: DateTime(2026, 1, 15)),
+        GoogleHealthHeartRateAPIURL.intraday(
+          startTime: DateTime.utc(2026, 1, 15, 10),
+          endTime: DateTime.utc(2026, 1, 15, 11),
+        ),
       );
 
       expect(endpointHit, isTrue);
       expect(result.data, hasLength(2));
-      expect(result.data.first.value, 5000);
-      expect(result.data[1].value, 7500);
+      expect(result.data.first.bpm, 68.0);
+      expect(result.data[1].bpm, 75.5);
       expect(result.credentials.accessToken, credentials.accessToken);
     });
 
@@ -81,7 +84,7 @@ void main() {
         return http.Response(jsonEncode({}), 200);
       });
 
-      final manager = GoogleHealthStepsDataManager(
+      final manager = GoogleHealthHeartRateDataManager(
         credentials: credentials,
         clientID: 'client_id',
         clientSecret: 'client_secret',
@@ -89,7 +92,7 @@ void main() {
       );
 
       final result = await manager.fetch(
-        GoogleHealthStepsAPIURL.day(date: DateTime(2026, 1, 15)),
+        GoogleHealthHeartRateAPIURL.day(date: DateTime(2026, 1, 15)),
       );
 
       expect(result.data, isEmpty);
@@ -110,7 +113,7 @@ void main() {
         return http.Response(dataBody, 200);
       });
 
-      final manager = GoogleHealthStepsDataManager(
+      final manager = GoogleHealthHeartRateDataManager(
         credentials: expiredCredentials,
         clientID: 'client_id',
         clientSecret: 'client_secret',
@@ -118,7 +121,7 @@ void main() {
       );
 
       final result = await manager.fetch(
-        GoogleHealthStepsAPIURL.day(date: DateTime(2026, 1, 15)),
+        GoogleHealthHeartRateAPIURL.day(date: DateTime(2026, 1, 15)),
       );
 
       expect(result.credentials.accessToken, 'new_access_token');
@@ -129,7 +132,7 @@ void main() {
         return http.Response('Unauthorized', 401);
       });
 
-      final manager = GoogleHealthStepsDataManager(
+      final manager = GoogleHealthHeartRateDataManager(
         credentials: credentials,
         clientID: 'client_id',
         clientSecret: 'client_secret',
@@ -138,7 +141,7 @@ void main() {
 
       expect(
         () => manager.fetch(
-          GoogleHealthStepsAPIURL.day(date: DateTime(2026, 1, 15)),
+          GoogleHealthHeartRateAPIURL.day(date: DateTime(2026, 1, 15)),
         ),
         throwsA(isA<GoogleHealthTokenExpiredException>()),
       );
@@ -149,7 +152,7 @@ void main() {
         return http.Response('Rate limit exceeded', 429);
       });
 
-      final manager = GoogleHealthStepsDataManager(
+      final manager = GoogleHealthHeartRateDataManager(
         credentials: credentials,
         clientID: 'client_id',
         clientSecret: 'client_secret',
@@ -158,7 +161,7 @@ void main() {
 
       expect(
         () => manager.fetch(
-          GoogleHealthStepsAPIURL.day(date: DateTime(2026, 1, 15)),
+          GoogleHealthHeartRateAPIURL.day(date: DateTime(2026, 1, 15)),
         ),
         throwsA(isA<GoogleHealthRateLimitException>()),
       );

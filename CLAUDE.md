@@ -1,6 +1,11 @@
 ```markdown
 # google_flutter_health — Claude Code Instructions
 
+## Git rules
+- Always work on the main branch only.
+- Never create new branches or worktrees.
+- Commit directly to main after each completed data type
+
 ## What this project is
 Flutter package wrapping the Google Health API.
 Architecture mirrors Fitbitter (see FITBITTER_ANALYSIS.md).
