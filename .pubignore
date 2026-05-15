@@ -1,0 +1,15 @@
+# Internal project docs — not part of the published package
+CLAUDE.md
+CLAUDE copy.md
+FITBITTER_ANALYSIS.md
+FITBITTER_ANALYSIS copy.md
+SPEC.md
+SPEC copy.md
+
+# Build output
+build/
+.dart_tool/
+
+# Flutter plugin manifest files (checked-in but gitignored)
+.flutter-plugins
+.flutter-plugins-dependencies

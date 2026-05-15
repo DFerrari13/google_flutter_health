@@ -1,3 +1,31 @@
+/// A Flutter package for the Google Health API.
+///
+/// Wraps the Google Health REST API in a type-safe, Dart-idiomatic interface.
+/// Handles OAuth 2.0 authentication and transparent token refresh.
+/// The spiritual successor to the [Fitbitter](https://pub.dev/packages/fitbitter) package.
+///
+/// ## Quick start
+///
+/// ```dart
+/// // 1. Authorize
+/// final credentials = await GoogleHealthConnector.authorize(
+///   clientID: 'YOUR_CLIENT_ID',
+///   clientSecret: 'YOUR_CLIENT_SECRET',
+///   redirectUri: 'com.example.app:/oauth2redirect',
+///   scopes: [GoogleHealthScopes.activityAndFitnessReadonly],
+/// );
+///
+/// // 2. Fetch today's steps
+/// final manager = GoogleHealthStepsDataManager(
+///   credentials: credentials!,
+///   clientID: 'YOUR_CLIENT_ID',
+///   clientSecret: 'YOUR_CLIENT_SECRET',
+/// );
+/// final result = await manager.fetch(
+///   GoogleHealthStepsAPIURL.day(date: DateTime.now()),
+/// );
+/// print(result.data.first.value); // step count
+/// ```
 library google_flutter_health;
 
 export 'src/connectors/google_health_connector.dart';

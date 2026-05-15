@@ -7,6 +7,13 @@ homepage: https://github.com/DFerrari13/google_flutter_health
 repository: https://github.com/DFerrari13/google_flutter_health
 issue_tracker: https://github.com/DFerrari13/google_flutter_health/issues
 
+topics:
+  - health
+  - fitness
+  - google-health
+  - flutter
+  - wearable
+
 environment:
   sdk: '>=3.0.0 <4.0.0'
   flutter: '>=3.10.0'
@@ -14,14 +21,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  googleapis_auth: ^1.6.0
+  googleapis_auth: ^2.0.0
   http: ^1.2.0
-  flutter_secure_storage: ^9.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   mockito: ^5.4.0
-  build_runner: ^2.4.0       # needed by mockito @GenerateMocks only
+  build_runner: ^2.4.0
   flutter_lints: ^4.0.0
-  pana: ^0.22.0              # run locally before publish to check pub.dev score
+  pana: ^0.22.0

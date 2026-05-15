@@ -1,13 +1,39 @@
+/// The authenticated user's Google Health profile and settings.
+///
+/// Combines data from the `users.me.profile` and `users.me.settings`
+/// endpoints. All fields are nullable because the API may not have data
+/// for a given user.
 class GoogleHealthProfileData {
+  /// The Google Health user ID.
   final String? userId;
+
+  /// The user's full display name.
   final String? displayName;
+
+  /// The user's given (first) name.
   final String? givenName;
+
+  /// The user's family (last) name.
   final String? familyName;
+
+  /// The user's date of birth as an ISO 8601 date string (`YYYY-MM-DD`).
   final String? birthdate;
+
+  /// The user's height in centimetres.
   final double? heightCm;
+
+  /// The user's weight in kilograms.
   final double? weightKg;
+
+  /// The user's biological sex.
+  ///
+  /// Typical API values: `"male"`, `"female"`, `"unspecified"`.
   final String? sex;
+
+  /// The user's preferred locale (e.g. `"en-US"`).
   final String? locale;
+
+  /// The user's configured time zone (e.g. `"America/New_York"`).
   final String? timezone;
 
   const GoogleHealthProfileData({
@@ -23,6 +49,7 @@ class GoogleHealthProfileData {
     this.timezone,
   });
 
+  /// Creates a [GoogleHealthProfileData] from a merged profile + settings JSON map.
   factory GoogleHealthProfileData.fromJson(Map<String, dynamic> json) {
     return GoogleHealthProfileData(
       userId: json['userId'] as String?,
@@ -38,6 +65,7 @@ class GoogleHealthProfileData {
     );
   }
 
+  /// Serialises this profile to a JSON-compatible map.
   Map<String, dynamic> toJson() => {
         'userId': userId,
         'displayName': displayName,
