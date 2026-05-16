@@ -1,3 +1,12 @@
+## 0.2.0
+
+### Added
+
+- `GoogleHealthDistanceDataManager` + `GoogleHealthDistanceAPIURL` + `GoogleHealthDistanceData` — daily and intraday distance in meters.
+- `GoogleHealthCaloriesDataManager` + `GoogleHealthCaloriesAPIURL` + `GoogleHealthCaloriesData` — daily and intraday total energy expenditure in kilocalories.
+- `GoogleHealthActiveZoneMinutesDataManager` + `GoogleHealthActiveZoneMinutesAPIURL` + `GoogleHealthActiveZoneMinutesData` — daily and intraday active zone minutes broken down by fat-burn, cardio, peak, and total.
+- `GoogleHealthRestingHeartRateDataManager` + `GoogleHealthRestingHeartRateAPIURL` + `GoogleHealthRestingHeartRateData` — daily resting heart rate (dailyRollup only).
+
 ## 0.1.0
 
 ### Added
