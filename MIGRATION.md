@@ -51,6 +51,189 @@ flutter pub get
 
 ---
 
+## Google Cloud Console setup
+
+Fitbit used its own developer portal at `dev.fitbit.com`. Google Health uses
+the [Google Cloud Console](https://console.cloud.google.com) — a more powerful
+but more complex setup. Follow these steps once per app.
+
+---
+
+### Step 1 — Create a project
+
+1. Open [console.cloud.google.com](https://console.cloud.google.com).
+2. Click the project picker at the top → **New Project**.
+3. Give it a name (e.g. `my-health-app`) and click **Create**.
+4. Make sure the new project is selected in the picker before continuing.
+
+---
+
+### Step 2 — Enable the Google Health API
+
+1. Open **APIs & Services → Library** (left sidebar).
+2. Search for **Google Health API**.
+3. Click the result → **Enable**.
+
+> If you do not see it, the API may not be available in your region yet, or
+> your account may need to be allowlisted. Check
+> [developers.google.com/health](https://developers.google.com/health) for
+> access requirements.
+
+---
+
+### Step 3 — Configure the OAuth consent screen
+
+This is the screen users see when your app asks for permission.
+
+1. Open **APIs & Services → OAuth consent screen**.
+2. Choose **External** (for any Google account) or **Internal** (Google
+   Workspace only). Pick **External** for a public app.
+3. Fill in:
+   - **App name** — displayed on the consent screen
+   - **User support email** — your email or a group address
+   - **Developer contact information** — your email
+4. Click **Save and Continue**.
+5. On the **Scopes** step, click **Add or Remove Scopes** and add the scopes
+   your app needs:
+
+   | Scope to add | Use case |
+   |---|---|
+   | `.../googlehealth.activity_and_fitness.readonly` | Steps, distance, calories, AZM, exercise |
+   | `.../googlehealth.health_metrics_and_measurements.readonly` | Heart rate, HRV, SpO2, weight |
+   | `.../googlehealth.sleep.readonly` | Sleep |
+   | `.../googlehealth.profile.readonly` | User profile |
+
+   The full scope URLs are listed in
+   [`GoogleHealthScopes`](lib/src/connectors/google_health_scopes.dart).
+
+6. Click **Save and Continue**.
+7. On the **Test users** step, click **Add Users** and add the Google accounts
+   you will use for testing. **Only these accounts can sign in while the app
+   is in "Testing" status.**
+8. Click **Save and Continue** → **Back to Dashboard**.
+
+> To let any user sign in (production), you must submit the app for
+> **Google verification** — go to **OAuth consent screen → Publish App**.
+> While in Testing mode, unverified apps work fine for up to 100 test users.
+
+---
+
+### Step 4 — Create OAuth client credentials
+
+You need different client types depending on your target platform.
+
+#### Android (recommended: `google_sign_in`)
+
+**4a. Android client** (for `google_sign_in` on-device sign-in):
+
+1. Open **APIs & Services → Credentials → Create Credentials → OAuth client ID**.
+2. Application type: **Android**.
+3. Package name: your app's package name from `android/app/src/main/AndroidManifest.xml`
+   (e.g. `com.example.myapp`).
+4. SHA-1 certificate fingerprint:
+   ```sh
+   # Debug fingerprint (for local development):
+   cd android && ./gradlew signingReport
+   # Look for "SHA1:" under "Variant: debugAndroidTest" or "Variant: debug"
+   ```
+   For release, use the SHA-1 of your upload/signing keystore.
+5. Click **Create**. No client secret is needed for Android clients — Google
+   validates via the SHA-1 instead.
+
+**4b. Web client** (for server-side token exchange):
+
+1. Create another credential → **Web application**.
+2. Name it something like `my-health-app (web/server)`.
+3. **Authorized JavaScript origins**: leave empty (not needed for server-side).
+4. **Authorized redirect URIs**: `http://localhost` (or leave empty).
+5. Click **Create**.
+6. Copy the **Client ID** and **Client Secret** — these are your
+   `webClientID` and `webClientSecret` in `GoogleSignInService`.
+
+#### iOS (recommended: `google_sign_in`)
+
+**4a. iOS client:**
+
+1. Create credential → **iOS**.
+2. Bundle ID: from `ios/Runner/Info.plist` → `CFBundleIdentifier`
+   (e.g. `com.example.myapp`).
+3. Click **Create**. Copy the **iOS Client ID** — pass it to
+   `GoogleSignIn(clientId: ...)` if needed, but `google_sign_in` v7 reads it
+   from `GoogleService-Info.plist` automatically.
+4. Download `GoogleService-Info.plist` from the credential detail page and
+   place it at `ios/Runner/GoogleService-Info.plist`.
+
+**4b. Web client** — same as Android step 4b above.
+
+#### Custom OAuth flow (no `google_sign_in`)
+
+1. Create credential → **Web application**.
+2. **Authorized redirect URIs**: add your custom scheme URI, e.g.
+   `com.example.myapp:/oauth2redirect`.
+3. Click **Create**. Copy **Client ID** and **Client Secret** — pass these to
+   `GoogleHealthConnector.authorize()`.
+
+---
+
+### Step 5 — Get your SHA-1 (Android)
+
+```sh
+# Debug key (development only — never use in production):
+keytool -list -v \
+  -keystore ~/.android/debug.keystore \
+  -alias androiddebugkey \
+  -storepass android \
+  -keypass android
+# Look for "SHA1:" in the output.
+
+# Or via Gradle (easier):
+cd android && ./gradlew signingReport
+```
+
+Paste the SHA-1 into the Android OAuth client you created in Step 4a.
+
+---
+
+### Step 6 — Verify credentials are wired up
+
+| Platform | Where credentials come from |
+|---|---|
+| Android | Android OAuth client (SHA-1 validated by Google) + Web client secret |
+| iOS | `GoogleService-Info.plist` (auto-read by `google_sign_in`) + Web client secret |
+| Custom flow | Web client ID + Web client secret passed to `GoogleHealthConnector.authorize()` |
+
+Your code should never hard-code credentials. Use environment variables or a
+config file that is excluded from version control (`.gitignore`):
+
+```dart
+// dart-define approach
+const clientID = String.fromEnvironment('GOOGLE_CLIENT_ID');
+const clientSecret = String.fromEnvironment('GOOGLE_CLIENT_SECRET');
+```
+
+```sh
+flutter run \
+  --dart-define=GOOGLE_CLIENT_ID=YOUR_ID \
+  --dart-define=GOOGLE_CLIENT_SECRET=YOUR_SECRET
+```
+
+---
+
+### Comparison: Fitbit developer portal vs Google Cloud Console
+
+| | Fitbit dev portal | Google Cloud Console |
+|---|---|---|
+| Registration | `dev.fitbit.com` | `console.cloud.google.com` |
+| Project concept | Single "app" per registration | Project → multiple credentials |
+| OAuth clients | One client ID per app | Separate clients per platform |
+| SHA-1 required | No | Yes (Android only) |
+| Consent screen | Auto-generated | Must configure manually |
+| Test users | Any Fitbit account | Must be added explicitly |
+| Production review | Fitbit approval | Google verification process |
+| Scopes | Short strings (`activity`, `heartrate`) | Full URLs (`googlehealth.*.readonly`) |
+
+---
+
 ## Authentication
 
 ### `authorize()`
