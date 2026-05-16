@@ -53,3 +53,6 @@ export 'src/data/google_health_distance_data.dart';
 export 'src/managers/google_health_calories_data_manager.dart';
 export 'src/urls/google_health_calories_api_url.dart';
 export 'src/data/google_health_calories_data.dart';
+export 'src/managers/google_health_active_zone_minutes_data_manager.dart';
+export 'src/urls/google_health_active_zone_minutes_api_url.dart';
+export 'src/data/google_health_active_zone_minutes_data.dart';
