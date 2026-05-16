@@ -48,7 +48,13 @@ P1 (after all P0 green): distance → calories → active-zone-minutes → resti
 P2 (after all P1 green): oxygen-saturation → hrv → weight → exercise
 
 ## Auth
-- Use googleapis_auth only — no google_sign_in, no open-source OAuth libs
+- The library itself stays minimal — only `http` for the token endpoint. No OAuth
+  SDK as a library dependency. Callers bring their own auth flow and pass an
+  authorization code (or use the `authorize()` callback on desktop).
+- The example app uses `google_sign_in` v7+ because Google deprecated the
+  loopback IP and custom URI scheme flows on Android (Oct 2022). On desktop
+  platforms the loopback flow is still permitted and the `authorize()` callback
+  remains the right path.
 - access_type=offline required in auth request to get a refresh token
 - Token URL: https://oauth2.googleapis.com/token
 - Scope prefix: https://www.googleapis.com/auth/googlehealth.{scope}
@@ -57,7 +63,7 @@ P2 (after all P1 green): oxygen-saturation → hrv → weight → exercise
 ## Never
 - Store credentials in the library
 - Add web platform support
-- Use google_sign_in
+- Add a Google/OAuth SDK as a dependency of the library itself
 - Implement P1/P2 before P0 is complete and tested
 - Guess API response shapes — always read the reference docs first
 ```

@@ -13,6 +13,7 @@ dependencies:
   google_flutter_health:
     path: ../
   flutter_secure_storage: ^10.0.0
+  google_sign_in: ^7.0.0
 
 dev_dependencies:
   flutter_test:
