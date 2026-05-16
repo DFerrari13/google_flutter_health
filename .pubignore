@@ -13,3 +13,9 @@ build/
 # Flutter plugin manifest files (checked-in but gitignored)
 .flutter-plugins
 .flutter-plugins-dependencies
+
+# Local OAuth client secrets — never publish
+client_secret*.json
+
+# Example app — not part of the published library
+example/
