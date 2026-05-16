@@ -59,3 +59,6 @@ export 'src/data/google_health_active_zone_minutes_data.dart';
 export 'src/managers/google_health_resting_heart_rate_data_manager.dart';
 export 'src/urls/google_health_resting_heart_rate_api_url.dart';
 export 'src/data/google_health_resting_heart_rate_data.dart';
+export 'src/managers/google_health_oxygen_saturation_data_manager.dart';
+export 'src/urls/google_health_oxygen_saturation_api_url.dart';
+export 'src/data/google_health_oxygen_saturation_data.dart';
