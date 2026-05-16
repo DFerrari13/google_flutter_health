@@ -27,6 +27,15 @@ flutter pub get
 
 ---
 
+## Migration from Fitbitter
+
+Coming from [Fitbitter](https://pub.dev/packages/fitbitter)? The architecture
+is deliberately parallel — connectors, managers, and URL builders work the same
+way. See [MIGRATION.md](MIGRATION.md) for a step-by-step guide covering auth
+changes, data type mapping, field renames, and the new `fetch()` return type.
+
+---
+
 ## Google Cloud Console Setup
 
 Before you can use this package you need OAuth 2.0 credentials from the Google Cloud Console.
@@ -176,7 +185,7 @@ class _MyAppState extends State<MyApp> {
 
     // Persist the potentially-refreshed token
     _auth.session.updateCredentials(result.credentials);
-    print('Steps: ${result.data.first.value}');
+    print('Steps today: ${result.data.first.value}');
   }
 
   Future<void> _logout() async {
@@ -242,22 +251,541 @@ print('Steps: ${result.data.first.value}');
 
 ---
 
+## Token Management
+
+Every `fetch()` call returns a record `({List<T> data, GoogleHealthCredentials credentials})`. The returned `credentials` may contain a freshly refreshed access token — always save it back to secure storage so the next call starts with a valid token.
+
+```dart
+final result = await manager.fetch(url);
+await secureStorage.write(key: 'access_token', value: result.credentials.accessToken);
+```
+
+Token refresh happens automatically inside `fetch()` when the token is within 60 seconds of expiry. `GoogleHealthTokenExpiredException` is only thrown when the refresh token itself has been revoked.
+
+---
+
+## Scopes
+
+Request only the scopes your app actually uses — the user sees a consent screen listing all requested scopes.
+
+| Constant | Scope URL | Covers |
+|----------|-----------|--------|
+| `GoogleHealthScopes.activityAndFitnessReadonly` | `googlehealth.activity_and_fitness.readonly` | Steps, distance, calories, active zone minutes, exercise |
+| `GoogleHealthScopes.healthMetricsReadonly` | `googlehealth.health_metrics_and_measurements.readonly` | Heart rate, resting HR, HRV, SpO2, weight |
+| `GoogleHealthScopes.sleepReadonly` | `googlehealth.sleep.readonly` | Sleep sessions |
+| `GoogleHealthScopes.profileReadonly` | `googlehealth.profile.readonly` | User profile and settings |
+
+Write-access variants (`activityAndFitness`, `healthMetrics`, `sleep`, `profile`) are also available but prefer readonly unless you need write access.
+
+---
+
 ## Supported Data Types
 
-| Priority | Data Type | Manager | Scope |
-|----------|-----------|---------|-------|
-| P0 | Steps | `GoogleHealthStepsDataManager` | `activityAndFitnessReadonly` |
-| P0 | Heart Rate | `GoogleHealthHeartRateDataManager` | `healthMetricsReadonly` |
-| P0 | Sleep | `GoogleHealthSleepDataManager` | `sleepReadonly` |
-| P0 | Profile | `GoogleHealthProfileDataManager` | `profileReadonly` |
-| P1 | Distance | *(coming soon)* | `activityAndFitnessReadonly` |
-| P1 | Calories | *(coming soon)* | `activityAndFitnessReadonly` |
-| P1 | Active Zone Minutes | *(coming soon)* | `activityAndFitnessReadonly` |
-| P1 | Resting Heart Rate | *(coming soon)* | `healthMetricsReadonly` |
-| P2 | Oxygen Saturation | *(coming soon)* | `healthMetricsReadonly` |
-| P2 | HRV | *(coming soon)* | `healthMetricsReadonly` |
-| P2 | Weight | *(coming soon)* | `healthMetricsReadonly` |
-| P2 | Exercise | *(coming soon)* | `activityAndFitnessReadonly` |
+| Data Type | Manager | URL Builder | Scope |
+|-----------|---------|-------------|-------|
+| Steps | `GoogleHealthStepsDataManager` | `GoogleHealthStepsAPIURL` | `activityAndFitnessReadonly` |
+| Heart Rate | `GoogleHealthHeartRateDataManager` | `GoogleHealthHeartRateAPIURL` | `healthMetricsReadonly` |
+| Sleep | `GoogleHealthSleepDataManager` | `GoogleHealthSleepAPIURL` | `sleepReadonly` |
+| Profile | `GoogleHealthProfileDataManager` | `GoogleHealthProfileAPIURL` | `profileReadonly` |
+| Distance | `GoogleHealthDistanceDataManager` | `GoogleHealthDistanceAPIURL` | `activityAndFitnessReadonly` |
+| Calories | `GoogleHealthCaloriesDataManager` | `GoogleHealthCaloriesAPIURL` | `activityAndFitnessReadonly` |
+| Active Zone Minutes | `GoogleHealthActiveZoneMinutesDataManager` | `GoogleHealthActiveZoneMinutesAPIURL` | `activityAndFitnessReadonly` |
+| Resting Heart Rate | `GoogleHealthRestingHeartRateDataManager` | `GoogleHealthRestingHeartRateAPIURL` | `healthMetricsReadonly` |
+| Oxygen Saturation | `GoogleHealthOxygenSaturationDataManager` | `GoogleHealthOxygenSaturationAPIURL` | `healthMetricsReadonly` |
+| HRV | `GoogleHealthHrvDataManager` | `GoogleHealthHrvAPIURL` | `healthMetricsReadonly` |
+| Weight | `GoogleHealthWeightDataManager` | `GoogleHealthWeightAPIURL` | `healthMetricsReadonly` |
+| Exercise | `GoogleHealthExerciseDataManager` | `GoogleHealthExerciseAPIURL` | `activityAndFitnessReadonly` |
+
+---
+
+## Data Types Reference
+
+### Steps
+
+**Model:** `GoogleHealthStepsData`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `userId` | `String?` | Google Health user ID |
+| `dateTime` | `DateTime?` | Timestamp in local time |
+| `value` | `int?` | Step count |
+
+**URL builders:**
+
+```dart
+GoogleHealthStepsAPIURL.day(date: DateTime.now())
+GoogleHealthStepsAPIURL.dateRange(startDate: DateTime(2026, 1, 1), endDate: DateTime(2026, 1, 31))
+GoogleHealthStepsAPIURL.intraday(startTime: start, endTime: end)
+```
+
+`day()` and `dateRange()` use the `dailyRollup` endpoint — one point per calendar day. `intraday()` uses `dataPoints` and returns individual step events.
+
+**Example:**
+
+```dart
+final manager = GoogleHealthStepsDataManager(
+  credentials: credentials,
+  clientID: clientID,
+  clientSecret: clientSecret,
+);
+final result = await manager.fetch(
+  GoogleHealthStepsAPIURL.day(date: DateTime.now()),
+);
+final steps = result.data.first.value; // e.g. 8432
+```
+
+---
+
+### Heart Rate
+
+**Model:** `GoogleHealthHeartRateData`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `userId` | `String?` | Google Health user ID |
+| `dateTime` | `DateTime?` | Timestamp in local time |
+| `bpm` | `double?` | Heart rate in beats per minute |
+
+**URL builders:**
+
+```dart
+GoogleHealthHeartRateAPIURL.day(date: DateTime.now())
+GoogleHealthHeartRateAPIURL.dateRange(startDate: start, endDate: end)
+GoogleHealthHeartRateAPIURL.intraday(startTime: start, endTime: end)
+```
+
+**Example:**
+
+```dart
+final manager = GoogleHealthHeartRateDataManager(
+  credentials: credentials,
+  clientID: clientID,
+  clientSecret: clientSecret,
+);
+final result = await manager.fetch(
+  GoogleHealthHeartRateAPIURL.intraday(
+    startTime: DateTime.now().subtract(const Duration(hours: 1)),
+    endTime: DateTime.now(),
+  ),
+);
+for (final point in result.data) {
+  print('${point.dateTime}: ${point.bpm} bpm');
+}
+```
+
+---
+
+### Sleep
+
+**Model:** `GoogleHealthSleepData`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `userId` | `String?` | Google Health user ID |
+| `startTime` | `DateTime?` | Segment start in local time |
+| `endTime` | `DateTime?` | Segment end in local time |
+| `sleepStage` | `String?` | `"light"`, `"deep"`, `"rem"`, or `"awake"` |
+| `duration` | `Duration?` | Computed from `endTime - startTime` |
+
+A full night's sleep returns multiple segments — one per stage transition. Sum durations by `sleepStage` to get total time in each stage.
+
+**URL builders:**
+
+```dart
+GoogleHealthSleepAPIURL.day(date: DateTime.now())
+GoogleHealthSleepAPIURL.dateRange(startDate: start, endDate: end)
+GoogleHealthSleepAPIURL.intraday(startTime: start, endTime: end)
+```
+
+**Example:**
+
+```dart
+final manager = GoogleHealthSleepDataManager(
+  credentials: credentials,
+  clientID: clientID,
+  clientSecret: clientSecret,
+);
+final result = await manager.fetch(
+  GoogleHealthSleepAPIURL.day(date: DateTime.now()),
+);
+
+// Total REM duration
+final remMinutes = result.data
+    .where((s) => s.sleepStage == 'rem')
+    .map((s) => s.duration?.inMinutes ?? 0)
+    .fold(0, (a, b) => a + b);
+print('REM sleep: $remMinutes minutes');
+```
+
+---
+
+### Profile
+
+**Model:** `GoogleHealthProfileData`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `userId` | `String?` | Google Health user ID |
+| `displayName` | `String?` | Full display name |
+| `givenName` | `String?` | First name |
+| `familyName` | `String?` | Last name |
+| `birthdate` | `String?` | ISO 8601 date (`YYYY-MM-DD`) |
+| `heightCm` | `double?` | Height in centimetres |
+| `weightKg` | `double?` | Weight in kilograms |
+| `sex` | `String?` | `"male"`, `"female"`, or `"unspecified"` |
+| `locale` | `String?` | Preferred locale (e.g. `"en-US"`) |
+| `timezone` | `String?` | Time zone (e.g. `"America/New_York"`) |
+
+**URL builders:** `GoogleHealthProfileAPIURL.profile` and `GoogleHealthProfileAPIURL.settings` are static instances (no parameters needed). The manager merges both responses into a single `GoogleHealthProfileData`.
+
+**Example:**
+
+```dart
+final manager = GoogleHealthProfileDataManager(
+  credentials: credentials,
+  clientID: clientID,
+  clientSecret: clientSecret,
+);
+// Pass either URL — the manager fetches both profile and settings internally
+final result = await manager.fetch(GoogleHealthProfileAPIURL.profile);
+print('Hello, ${result.data.first.givenName}!');
+print('Height: ${result.data.first.heightCm} cm');
+```
+
+---
+
+### Distance
+
+**Model:** `GoogleHealthDistanceData`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `userId` | `String?` | Google Health user ID |
+| `dateTime` | `DateTime?` | Timestamp in local time |
+| `distanceMeters` | `double?` | Distance in meters |
+
+**URL builders:**
+
+```dart
+GoogleHealthDistanceAPIURL.day(date: DateTime.now())
+GoogleHealthDistanceAPIURL.dateRange(startDate: start, endDate: end)
+GoogleHealthDistanceAPIURL.intraday(startTime: start, endTime: end)
+```
+
+**Example:**
+
+```dart
+final manager = GoogleHealthDistanceDataManager(
+  credentials: credentials,
+  clientID: clientID,
+  clientSecret: clientSecret,
+);
+final result = await manager.fetch(
+  GoogleHealthDistanceAPIURL.day(date: DateTime.now()),
+);
+final km = (result.data.first.distanceMeters ?? 0) / 1000;
+print('Distance today: ${km.toStringAsFixed(2)} km');
+```
+
+---
+
+### Calories
+
+**Model:** `GoogleHealthCaloriesData`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `userId` | `String?` | Google Health user ID |
+| `dateTime` | `DateTime?` | Timestamp in local time |
+| `calories` | `double?` | Energy expenditure in kilocalories |
+
+**URL builders:**
+
+```dart
+GoogleHealthCaloriesAPIURL.day(date: DateTime.now())
+GoogleHealthCaloriesAPIURL.dateRange(startDate: start, endDate: end)
+GoogleHealthCaloriesAPIURL.intraday(startTime: start, endTime: end)
+```
+
+**Example:**
+
+```dart
+final manager = GoogleHealthCaloriesDataManager(
+  credentials: credentials,
+  clientID: clientID,
+  clientSecret: clientSecret,
+);
+final result = await manager.fetch(
+  GoogleHealthCaloriesAPIURL.dateRange(
+    startDate: DateTime.now().subtract(const Duration(days: 6)),
+    endDate: DateTime.now(),
+  ),
+);
+for (final point in result.data) {
+  print('${point.dateTime}: ${point.calories} kcal');
+}
+```
+
+---
+
+### Active Zone Minutes
+
+**Model:** `GoogleHealthActiveZoneMinutesData`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `userId` | `String?` | Google Health user ID |
+| `dateTime` | `DateTime?` | Timestamp in local time |
+| `fatBurnMinutes` | `double?` | Minutes in fat-burn zone |
+| `cardioMinutes` | `double?` | Minutes in cardio zone |
+| `peakMinutes` | `double?` | Minutes in peak zone |
+| `totalMinutes` | `double?` | Total active zone minutes across all zones |
+
+**URL builders:**
+
+```dart
+GoogleHealthActiveZoneMinutesAPIURL.day(date: DateTime.now())
+GoogleHealthActiveZoneMinutesAPIURL.dateRange(startDate: start, endDate: end)
+GoogleHealthActiveZoneMinutesAPIURL.intraday(startTime: start, endTime: end)
+```
+
+**Example:**
+
+```dart
+final manager = GoogleHealthActiveZoneMinutesDataManager(
+  credentials: credentials,
+  clientID: clientID,
+  clientSecret: clientSecret,
+);
+final result = await manager.fetch(
+  GoogleHealthActiveZoneMinutesAPIURL.day(date: DateTime.now()),
+);
+final azm = result.data.first;
+print('AZM today — fat burn: ${azm.fatBurnMinutes}, '
+    'cardio: ${azm.cardioMinutes}, peak: ${azm.peakMinutes}');
+```
+
+---
+
+### Resting Heart Rate
+
+**Model:** `GoogleHealthRestingHeartRateData`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `userId` | `String?` | Google Health user ID |
+| `dateTime` | `DateTime?` | Date (start of calendar day) in local time |
+| `beatsPerMinute` | `double?` | Resting heart rate in bpm |
+
+Resting heart rate is a **daily-only metric** computed by the API. Only `dailyRollup()` is available.
+
+**URL builders:**
+
+```dart
+GoogleHealthRestingHeartRateAPIURL.dailyRollup(
+  startDate: DateTime.now().subtract(const Duration(days: 6)),
+  endDate: DateTime.now(),
+)
+```
+
+**Example:**
+
+```dart
+final manager = GoogleHealthRestingHeartRateDataManager(
+  credentials: credentials,
+  clientID: clientID,
+  clientSecret: clientSecret,
+);
+final result = await manager.fetch(
+  GoogleHealthRestingHeartRateAPIURL.dailyRollup(
+    startDate: DateTime.now().subtract(const Duration(days: 29)),
+    endDate: DateTime.now(),
+  ),
+);
+for (final point in result.data) {
+  print('${point.dateTime}: ${point.beatsPerMinute} bpm');
+}
+```
+
+---
+
+### Oxygen Saturation (SpO2)
+
+**Model:** `GoogleHealthOxygenSaturationData`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `userId` | `String?` | Google Health user ID |
+| `dateTime` | `DateTime?` | Date (start of calendar day) in local time |
+| `spo2Percentage` | `double?` | Average SpO2 for the day (0–100) |
+| `spo2Low` | `double?` | Minimum SpO2 observed (0–100) |
+| `spo2High` | `double?` | Maximum SpO2 observed (0–100) |
+
+SpO2 is a **daily-only metric**. Only `dailyRollup()` is available.
+
+**URL builders:**
+
+```dart
+GoogleHealthOxygenSaturationAPIURL.dailyRollup(
+  startDate: DateTime.now().subtract(const Duration(days: 6)),
+  endDate: DateTime.now(),
+)
+```
+
+**Example:**
+
+```dart
+final manager = GoogleHealthOxygenSaturationDataManager(
+  credentials: credentials,
+  clientID: clientID,
+  clientSecret: clientSecret,
+);
+final result = await manager.fetch(
+  GoogleHealthOxygenSaturationAPIURL.dailyRollup(
+    startDate: DateTime.now().subtract(const Duration(days: 6)),
+    endDate: DateTime.now(),
+  ),
+);
+for (final point in result.data) {
+  print('${point.dateTime}: avg ${point.spo2Percentage}% '
+      '(${point.spo2Low}–${point.spo2High}%)');
+}
+```
+
+---
+
+### Heart Rate Variability (HRV)
+
+**Model:** `GoogleHealthHrvData`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `userId` | `String?` | Google Health user ID |
+| `dateTime` | `DateTime?` | Date (start of calendar day) in local time |
+| `rmssd` | `double?` | Root mean square of successive differences (ms) |
+| `coverage` | `double?` | Fraction of day with valid HRV data (0.0–1.0) |
+| `hfPower` | `double?` | High-frequency power band (ms²) |
+| `lfPower` | `double?` | Low-frequency power band (ms²) |
+
+HRV is a **daily-only metric**. Only `dailyRollup()` is available.
+
+**URL builders:**
+
+```dart
+GoogleHealthHrvAPIURL.dailyRollup(
+  startDate: DateTime.now().subtract(const Duration(days: 6)),
+  endDate: DateTime.now(),
+)
+```
+
+**Example:**
+
+```dart
+final manager = GoogleHealthHrvDataManager(
+  credentials: credentials,
+  clientID: clientID,
+  clientSecret: clientSecret,
+);
+final result = await manager.fetch(
+  GoogleHealthHrvAPIURL.dailyRollup(
+    startDate: DateTime.now().subtract(const Duration(days: 6)),
+    endDate: DateTime.now(),
+  ),
+);
+for (final point in result.data) {
+  print('${point.dateTime}: RMSSD ${point.rmssd} ms');
+}
+```
+
+---
+
+### Weight
+
+**Model:** `GoogleHealthWeightData`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `userId` | `String?` | Google Health user ID |
+| `dateTime` | `DateTime?` | Weigh-in timestamp in local time |
+| `weightKg` | `double?` | Body weight in kilograms |
+| `bmi` | `double?` | Body Mass Index |
+| `bodyFatPercentage` | `double?` | Body fat percentage (0–100) |
+
+Weight is a **sporadic metric** — one data point per logged weigh-in. There is no `day()` builder; use `dateRange()` or `intraday()`.
+
+**URL builders:**
+
+```dart
+GoogleHealthWeightAPIURL.dateRange(startDate: start, endDate: end)
+GoogleHealthWeightAPIURL.intraday(startTime: start, endTime: end)
+```
+
+**Example:**
+
+```dart
+final manager = GoogleHealthWeightDataManager(
+  credentials: credentials,
+  clientID: clientID,
+  clientSecret: clientSecret,
+);
+final result = await manager.fetch(
+  GoogleHealthWeightAPIURL.dateRange(
+    startDate: DateTime.now().subtract(const Duration(days: 29)),
+    endDate: DateTime.now(),
+  ),
+);
+for (final point in result.data) {
+  print('${point.dateTime}: ${point.weightKg} kg, BMI ${point.bmi}');
+}
+```
+
+---
+
+### Exercise
+
+**Model:** `GoogleHealthExerciseData`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `userId` | `String?` | Google Health user ID |
+| `startTime` | `DateTime?` | Session start in local time |
+| `endTime` | `DateTime?` | Session end in local time |
+| `activityType` | `String?` | Activity identifier (e.g. `"running"`, `"cycling"`) |
+| `durationMillis` | `double?` | Session duration in milliseconds |
+| `calories` | `double?` | Energy expenditure in kilocalories |
+| `distanceMeters` | `double?` | Distance covered in meters |
+| `steps` | `double?` | Step count for the session |
+
+Exercise sessions use `startTime` + `endTime` instead of a single `dateTime` field. There is no `day()` builder; use `dateRange()` or `intraday()`.
+
+**URL builders:**
+
+```dart
+GoogleHealthExerciseAPIURL.dateRange(startDate: start, endDate: end)
+GoogleHealthExerciseAPIURL.intraday(startTime: start, endTime: end)
+```
+
+**Example:**
+
+```dart
+final manager = GoogleHealthExerciseDataManager(
+  credentials: credentials,
+  clientID: clientID,
+  clientSecret: clientSecret,
+);
+final result = await manager.fetch(
+  GoogleHealthExerciseAPIURL.dateRange(
+    startDate: DateTime.now().subtract(const Duration(days: 29)),
+    endDate: DateTime.now(),
+  ),
+);
+for (final session in result.data) {
+  final durationMin = (session.durationMillis ?? 0) / 60000;
+  print('${session.startTime}: ${session.activityType} '
+      '${durationMin.toStringAsFixed(0)} min, '
+      '${session.distanceMeters != null ? "${(session.distanceMeters! / 1000).toStringAsFixed(2)} km" : ""}');
+}
+```
 
 ---
 
@@ -287,7 +815,7 @@ try {
 Contributions are welcome! Please open an issue before submitting a PR to discuss the change. Make sure to:
 
 1. Run `dart analyze --fatal-infos` — zero warnings required.
-2. Run `dart test` — all tests must pass.
+2. Run `flutter test` — all tests must pass.
 3. Run `dart format --set-exit-if-changed lib test` — code must be formatted.
 4. Add tests for any new data type following the existing pattern.
 
