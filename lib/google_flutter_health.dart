@@ -68,3 +68,6 @@ export 'src/data/google_health_hrv_data.dart';
 export 'src/managers/google_health_weight_data_manager.dart';
 export 'src/urls/google_health_weight_api_url.dart';
 export 'src/data/google_health_weight_data.dart';
+export 'src/managers/google_health_exercise_data_manager.dart';
+export 'src/urls/google_health_exercise_api_url.dart';
+export 'src/data/google_health_exercise_data.dart';
