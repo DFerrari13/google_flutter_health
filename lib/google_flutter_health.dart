@@ -50,3 +50,6 @@ export 'src/data/google_health_sleep_data.dart';
 export 'src/managers/google_health_distance_data_manager.dart';
 export 'src/urls/google_health_distance_api_url.dart';
 export 'src/data/google_health_distance_data.dart';
+export 'src/managers/google_health_calories_data_manager.dart';
+export 'src/urls/google_health_calories_api_url.dart';
+export 'src/data/google_health_calories_data.dart';
