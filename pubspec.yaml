@@ -2,7 +2,7 @@ name: google_flutter_health
 description: >-
   A Flutter package to make your life easier when dealing with
   the Google Health API. The spiritual successor to Fitbitter.
-version: 0.2.0
+version: 0.3.0
 homepage: https://github.com/DFerrari13/google_flutter_health
 repository: https://github.com/DFerrari13/google_flutter_health
 issue_tracker: https://github.com/DFerrari13/google_flutter_health/issues
@@ -21,8 +21,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  googleapis_auth: ^2.0.0
   http: ^1.2.0
+  meta: ^1.10.0
 
 dev_dependencies:
   flutter_test:
@@ -30,4 +30,3 @@ dev_dependencies:
   mockito: ^5.4.0
   build_runner: ^2.4.0
   flutter_lints: ^4.0.0
-  pana: ^0.22.0

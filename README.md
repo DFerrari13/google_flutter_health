@@ -14,7 +14,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  google_flutter_health: ^0.1.0
+  google_flutter_health: ^0.3.0
   google_sign_in: ^7.0.0          # for interactive sign-in on Android / iOS
   flutter_secure_storage: ^10.0.0 # for persisting credentials
 ```
@@ -185,7 +185,7 @@ class _MyAppState extends State<MyApp> {
 
     // Persist the potentially-refreshed token
     _auth.session.updateCredentials(result.credentials);
-    print('Steps today: ${result.data.first.value}');
+    print('Steps today: ${result.data.first.count}');
   }
 
   Future<void> _logout() async {
@@ -246,7 +246,7 @@ final result = await manager.fetch(
 );
 
 // Always persist the returned credentials (may have been auto-refreshed)
-print('Steps: ${result.data.first.value}');
+print('Steps: ${result.data.first.count}');
 ```
 
 ---
@@ -306,9 +306,10 @@ Write-access variants (`activityAndFitness`, `healthMetrics`, `sleep`, `profile`
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `userId` | `String?` | Google Health user ID |
-| `dateTime` | `DateTime?` | Timestamp in local time |
-| `value` | `int?` | Step count |
+| `name` | `String?` | Resource name (`users/me/dataTypes/steps/dataPoints/...`) |
+| `startTime` | `DateTime?` | Start of interval in local time |
+| `endTime` | `DateTime?` | End of interval in local time |
+| `count` | `int?` | Step count (interval raw count or daily `countSum`) |
 
 **URL builders:**
 
@@ -331,7 +332,7 @@ final manager = GoogleHealthStepsDataManager(
 final result = await manager.fetch(
   GoogleHealthStepsAPIURL.day(date: DateTime.now()),
 );
-final steps = result.data.first.value; // e.g. 8432
+final steps = result.data.first.count; // e.g. 8432
 ```
 
 ---
@@ -342,9 +343,14 @@ final steps = result.data.first.value; // e.g. 8432
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `userId` | `String?` | Google Health user ID |
-| `dateTime` | `DateTime?` | Timestamp in local time |
-| `bpm` | `double?` | Heart rate in beats per minute |
+| `name` | `String?` | Resource name |
+| `sampleTime` | `DateTime?` | Sample timestamp (raw `list` responses) |
+| `civilStartTime` | `DateTime?` | Civil-day bucket start (`dailyRollUp`) |
+| `civilEndTime` | `DateTime?` | Civil-day bucket end (`dailyRollUp`) |
+| `beatsPerMinute` | `int?` | BPM for a single sample (raw responses) |
+| `beatsPerMinuteAvg` | `double?` | Average BPM (`dailyRollUp`) |
+| `beatsPerMinuteMin` | `double?` | Minimum BPM (`dailyRollUp`) |
+| `beatsPerMinuteMax` | `double?` | Maximum BPM (`dailyRollUp`) |
 
 **URL builders:**
 
@@ -369,7 +375,7 @@ final result = await manager.fetch(
   ),
 );
 for (final point in result.data) {
-  print('${point.dateTime}: ${point.bpm} bpm');
+  print('${point.sampleTime}: ${point.beatsPerMinute} bpm');
 }
 ```
 
@@ -381,13 +387,14 @@ for (final point in result.data) {
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `userId` | `String?` | Google Health user ID |
+| `name` | `String?` | Parent session resource name |
 | `startTime` | `DateTime?` | Segment start in local time |
 | `endTime` | `DateTime?` | Segment end in local time |
-| `sleepStage` | `String?` | `"light"`, `"deep"`, `"rem"`, or `"awake"` |
+| `stage` | `String?` | `"AWAKE"`, `"LIGHT"`, `"DEEP"`, `"REM"`, `"ASLEEP"`, `"RESTLESS"` |
+| `sessionType` | `String?` | `"CLASSIC"` or `"STAGES"` |
 | `duration` | `Duration?` | Computed from `endTime - startTime` |
 
-A full night's sleep returns multiple segments — one per stage transition. Sum durations by `sleepStage` to get total time in each stage.
+A full night's sleep returns multiple segments — one per stage transition. Sum durations by `stage` to get total time in each stage.
 
 **URL builders:**
 
@@ -411,7 +418,7 @@ final result = await manager.fetch(
 
 // Total REM duration
 final remMinutes = result.data
-    .where((s) => s.sleepStage == 'rem')
+    .where((s) => s.stage == 'REM')
     .map((s) => s.duration?.inMinutes ?? 0)
     .fold(0, (a, b) => a + b);
 print('REM sleep: $remMinutes minutes');
@@ -423,18 +430,27 @@ print('REM sleep: $remMinutes minutes');
 
 **Model:** `GoogleHealthProfileData`
 
+The Google Health profile API exposes a narrow set of fields. For display name, photo, etc. use the Google account profile from your sign-in library.
+
 | Field | Type | Description |
 |-------|------|-------------|
-| `userId` | `String?` | Google Health user ID |
-| `displayName` | `String?` | Full display name |
-| `givenName` | `String?` | First name |
-| `familyName` | `String?` | Last name |
-| `birthdate` | `String?` | ISO 8601 date (`YYYY-MM-DD`) |
-| `heightCm` | `double?` | Height in centimetres |
-| `weightKg` | `double?` | Weight in kilograms |
-| `sex` | `String?` | `"male"`, `"female"`, or `"unspecified"` |
-| `locale` | `String?` | Preferred locale (e.g. `"en-US"`) |
-| `timezone` | `String?` | Time zone (e.g. `"America/New_York"`) |
+| `age` | `int?` | User's age in completed years |
+| `membershipStartDate` | `String?` | ISO 8601 date the user joined Google Health |
+| `userConfiguredWalkingStrideLengthMm` | `int?` | Walking stride length (mm) |
+| `userConfiguredRunningStrideLengthMm` | `int?` | Running stride length (mm) |
+| `autoWalkingStrideLengthMm` | `int?` | Auto-derived walking stride (mm) |
+| `autoRunningStrideLengthMm` | `int?` | Auto-derived running stride (mm) |
+| `distanceUnit` | `String?` | `MILES` or `KILOMETERS` |
+| `weightUnit` | `String?` | `POUNDS`, `STONE`, or `KILOGRAMS` |
+| `heightUnit` | `String?` | `INCHES` or `CENTIMETERS` |
+| `temperatureUnit` | `String?` | `CELSIUS` or `FAHRENHEIT` |
+| `glucoseUnit` | `String?` | `MG_DL` or `MMOL_L` |
+| `swimUnit` | `String?` | `METERS` or `YARDS` |
+| `waterUnit` | `String?` | `ML`, `FL_OZ`, or `CUP` |
+| `languageLocale` | `String?` | User locale (e.g. `en-US`) |
+| `timeZone` | `String?` | IANA time zone |
+| `utcOffset` | `String?` | UTC offset duration string (e.g. `-28800s`) |
+| `autoStrideEnabled` | `bool?` | Whether automatic stride detection is on |
 
 **URL builders:** `GoogleHealthProfileAPIURL.profile` and `GoogleHealthProfileAPIURL.settings` are static instances (no parameters needed). The manager merges both responses into a single `GoogleHealthProfileData`.
 
@@ -448,8 +464,8 @@ final manager = GoogleHealthProfileDataManager(
 );
 // Pass either URL — the manager fetches both profile and settings internally
 final result = await manager.fetch(GoogleHealthProfileAPIURL.profile);
-print('Hello, ${result.data.first.givenName}!');
-print('Height: ${result.data.first.heightCm} cm');
+final profile = result.data.first;
+print('Age: ${profile.age}, prefers ${profile.distanceUnit}');
 ```
 
 ---

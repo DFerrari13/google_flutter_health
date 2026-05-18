@@ -1,47 +1,71 @@
+import '_parsing_helpers.dart';
+
 /// A single distance data point from the Google Health API.
 ///
-/// When using the `dailyRollup` endpoint, each instance represents the total
-/// distance for one calendar day. When using the `dataPoints` list endpoint,
-/// each instance represents an individual distance event.
+/// For raw `list` responses [distanceMeters] holds the interval distance.
+/// For `dailyRollUp` responses [distanceMeters] holds the daily sum
+/// (`distanceMetersSum`).
 class GoogleHealthDistanceData {
-  /// The Google Health user ID associated with this data point.
-  final String? userId;
+  /// Resource name (only set on `list` responses).
+  final String? name;
 
-  /// The timestamp of this data point in local time.
+  /// Start of this data point's interval in local time.
+  final DateTime? startTime;
+
+  /// End of this data point's interval in local time.
+  final DateTime? endTime;
+
+  /// Distance in meters.
   ///
-  /// For daily rollup results this is the start of the calendar day.
-  /// For intraday results this is the start of the distance event.
-  final DateTime? dateTime;
-
-  /// The distance for this data point, in meters.
+  /// Populated from `distance.distanceMeters` (raw) or
+  /// `distance.distanceMetersSum` (dailyRollUp). The parser also accepts
+  /// `meters` / `metersSum` as fallback keys.
   final double? distanceMeters;
 
   const GoogleHealthDistanceData({
-    this.userId,
-    this.dateTime,
+    this.name,
+    this.startTime,
+    this.endTime,
     this.distanceMeters,
   });
 
-  /// Creates a [GoogleHealthDistanceData] from a raw API JSON map.
   factory GoogleHealthDistanceData.fromJson(Map<String, dynamic> json) {
+    final field = json['distance'];
+    final d = field is Map<String, dynamic> ? field : const <String, dynamic>{};
+
+    if (json.containsKey('civilStartTime')) {
+      return GoogleHealthDistanceData(
+        name: json['name'] as String?,
+        startTime: parseCivilDateTime(json['civilStartTime']),
+        endTime: parseCivilDateTime(json['civilEndTime']),
+        distanceMeters: parseNumber(d['distanceMetersSum'] ??
+            d['metersSum'] ??
+            d['distanceMeters'] ??
+            d['meters']),
+      );
+    }
+
+    final intervalField = d['interval'];
+    final interval = intervalField is Map<String, dynamic>
+        ? intervalField
+        : const <String, dynamic>{};
     return GoogleHealthDistanceData(
-      userId: json['userId'] as String?,
-      dateTime: json['startTime'] != null
-          ? DateTime.parse(json['startTime'] as String).toLocal()
-          : null,
-      distanceMeters: (json['value'] as num?)?.toDouble(),
+      name: json['name'] as String?,
+      startTime: parsePhysicalTime(interval['startTime']),
+      endTime: parsePhysicalTime(interval['endTime']),
+      distanceMeters: parseNumber(d['distanceMeters'] ?? d['meters']),
     );
   }
 
-  /// Serialises this data point to a JSON-compatible map.
   Map<String, dynamic> toJson() => {
-        'userId': userId,
-        'startTime': dateTime?.toUtc().toIso8601String(),
-        'value': distanceMeters,
+        'name': name,
+        'startTime': startTime?.toUtc().toIso8601String(),
+        'endTime': endTime?.toUtc().toIso8601String(),
+        'distanceMeters': distanceMeters,
       };
 
   @override
-  String toString() =>
-      'GoogleHealthDistanceData(userId: $userId, dateTime: $dateTime, '
+  String toString() => 'GoogleHealthDistanceData(name: $name, '
+      'startTime: $startTime, endTime: $endTime, '
       'distanceMeters: $distanceMeters)';
 }

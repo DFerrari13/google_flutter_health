@@ -1,39 +1,50 @@
 import 'google_health_api_url.dart';
+import '_request_helpers.dart';
 
-/// URL builder for the Google Health daily-oxygen-saturation data type.
+/// URL builder for the Google Health `daily-oxygen-saturation` data type.
 ///
-/// SpO2 is a daily-only metric — only [dailyRollup] is exposed.
-/// There is no `day()` or `intraday()` variant.
-///
-/// ```dart
-/// final url = GoogleHealthOxygenSaturationAPIURL.dailyRollup(
-///   startDate: DateTime.now().subtract(const Duration(days: 7)),
-///   endDate: DateTime.now(),
-/// );
-/// ```
+/// Daily SpO2 is pre-aggregated, supports only `list`.
 class GoogleHealthOxygenSaturationAPIURL extends GoogleHealthAPIURL {
-  GoogleHealthOxygenSaturationAPIURL._({required super.uri});
+  const GoogleHealthOxygenSaturationAPIURL._({required super.uri})
+      : super(method: GoogleHealthRequestMethod.get);
 
-  /// Builds a URL for daily SpO2 using the `dailyRollup` endpoint.
-  ///
-  /// Returns one data point per day in the range.
-  ///
-  /// - [startDate]: First day of the range (inclusive). Time components are ignored.
-  /// - [endDate]: Last day of the range (inclusive). Time components are ignored.
-  factory GoogleHealthOxygenSaturationAPIURL.dailyRollup({
+  /// The data-type identifier used by the Google Health API.
+  static const String dataType = 'daily-oxygen-saturation';
+
+  factory GoogleHealthOxygenSaturationAPIURL.day({required DateTime date}) {
+    return GoogleHealthOxygenSaturationAPIURL.dateRange(
+      startDate: date,
+      endDate: date,
+    );
+  }
+
+  factory GoogleHealthOxygenSaturationAPIURL.dateRange({
     required DateTime startDate,
     required DateTime endDate,
   }) {
+    final start = DateTime(startDate.year, startDate.month, startDate.day);
+    final end = DateTime(endDate.year, endDate.month, endDate.day)
+        .add(const Duration(days: 1));
+    final filter = buildTimeFilter(
+      fieldPath: 'daily_oxygen_saturation.civil_date_time.start_time',
+      startTime: start,
+      endTime: end,
+    );
     final uri = Uri.https(
       'health.googleapis.com',
-      '/v4/users/me/dataTypes/daily-oxygen-saturation/dataPoints:dailyRollup',
-      {'startTime': _formatDate(startDate), 'endTime': _formatDate(endDate)},
+      '/v4/users/me/dataTypes/$dataType/dataPoints',
+      {'filter': filter},
     );
     return GoogleHealthOxygenSaturationAPIURL._(uri: uri);
   }
 
-  static String _formatDate(DateTime d) =>
-      '${d.year.toString().padLeft(4, '0')}-'
-      '${d.month.toString().padLeft(2, '0')}-'
-      '${d.day.toString().padLeft(2, '0')}';
+  @Deprecated('Use dateRange instead.')
+  factory GoogleHealthOxygenSaturationAPIURL.dailyRollup({
+    required DateTime startDate,
+    required DateTime endDate,
+  }) =>
+      GoogleHealthOxygenSaturationAPIURL.dateRange(
+        startDate: startDate,
+        endDate: endDate,
+      );
 }

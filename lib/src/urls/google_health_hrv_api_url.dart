@@ -1,32 +1,43 @@
 import 'google_health_api_url.dart';
+import '_request_helpers.dart';
 
-/// URL builder for the Google Health daily-heart-rate-variability data type.
-///
-/// HRV is a daily-only metric — only [dailyRollup] is exposed.
-/// There is no `day()` or `intraday()` variant.
+/// URL builder for the Google Health `daily-heart-rate-variability` data type.
 class GoogleHealthHrvAPIURL extends GoogleHealthAPIURL {
-  GoogleHealthHrvAPIURL._({required super.uri});
+  const GoogleHealthHrvAPIURL._({required super.uri})
+      : super(method: GoogleHealthRequestMethod.get);
 
-  /// Builds a URL for daily HRV using the `dailyRollup` endpoint.
-  ///
-  /// Returns one data point per day in the range.
-  ///
-  /// - [startDate]: First day of the range (inclusive). Time components are ignored.
-  /// - [endDate]: Last day of the range (inclusive). Time components are ignored.
-  factory GoogleHealthHrvAPIURL.dailyRollup({
+  /// The data-type identifier used by the Google Health API.
+  static const String dataType = 'daily-heart-rate-variability';
+
+  factory GoogleHealthHrvAPIURL.day({required DateTime date}) {
+    return GoogleHealthHrvAPIURL.dateRange(startDate: date, endDate: date);
+  }
+
+  factory GoogleHealthHrvAPIURL.dateRange({
     required DateTime startDate,
     required DateTime endDate,
   }) {
+    final start = DateTime(startDate.year, startDate.month, startDate.day);
+    final end = DateTime(endDate.year, endDate.month, endDate.day)
+        .add(const Duration(days: 1));
+    final filter = buildTimeFilter(
+      fieldPath:
+          'daily_heart_rate_variability.civil_date_time.start_time',
+      startTime: start,
+      endTime: end,
+    );
     final uri = Uri.https(
       'health.googleapis.com',
-      '/v4/users/me/dataTypes/daily-heart-rate-variability/dataPoints:dailyRollup',
-      {'startTime': _formatDate(startDate), 'endTime': _formatDate(endDate)},
+      '/v4/users/me/dataTypes/$dataType/dataPoints',
+      {'filter': filter},
     );
     return GoogleHealthHrvAPIURL._(uri: uri);
   }
 
-  static String _formatDate(DateTime d) =>
-      '${d.year.toString().padLeft(4, '0')}-'
-      '${d.month.toString().padLeft(2, '0')}-'
-      '${d.day.toString().padLeft(2, '0')}';
+  @Deprecated('Use dateRange instead.')
+  factory GoogleHealthHrvAPIURL.dailyRollup({
+    required DateTime startDate,
+    required DateTime endDate,
+  }) =>
+      GoogleHealthHrvAPIURL.dateRange(startDate: startDate, endDate: endDate);
 }

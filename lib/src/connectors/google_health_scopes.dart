@@ -59,10 +59,30 @@ class GoogleHealthScopes {
       'https://www.googleapis.com/auth/googlehealth.profile.readonly';
 
   /// Read-only access to location data.
+  ///
+  /// The Google Health API only exposes a read-only variant of the location
+  /// scope.
   static const String locationReadonly =
       'https://www.googleapis.com/auth/googlehealth.location.readonly';
 
+  /// Read and write access to nutrition data (e.g. hydration logs).
+  static const String nutrition =
+      'https://www.googleapis.com/auth/googlehealth.nutrition';
+
   /// Read-only access to nutrition data.
+  ///
+  /// Prefer this over [nutrition] unless you need write access.
   static const String nutritionReadonly =
       'https://www.googleapis.com/auth/googlehealth.nutrition.readonly';
+
+  /// Read and write access to the user's Google Health settings (units, time
+  /// zone, stride length, etc.).
+  static const String settings =
+      'https://www.googleapis.com/auth/googlehealth.settings';
+
+  /// Read-only access to the user's Google Health settings.
+  ///
+  /// Prefer this over [settings] unless you need write access.
+  static const String settingsReadonly =
+      'https://www.googleapis.com/auth/googlehealth.settings.readonly';
 }

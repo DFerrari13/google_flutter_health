@@ -1,9 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_flutter_health/google_flutter_health.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:google_flutter_health/google_flutter_health.dart';
 
 void main() {
   group('GoogleHealthStepsDataManager', () {
@@ -30,19 +30,27 @@ void main() {
       );
     });
 
-    test('fetch() returns parsed data points and unchanged credentials',
+    test('fetch() POSTs to dailyRollUp and parses civil-time data points',
         () async {
       final body = jsonEncode({
         'dataPoints': [
           {
-            'userId': 'user_123',
-            'startTime': '2026-01-15T00:00:00Z',
-            'value': 5000,
+            'civilStartTime': {
+              'date': {'year': 2026, 'month': 1, 'day': 15},
+            },
+            'civilEndTime': {
+              'date': {'year': 2026, 'month': 1, 'day': 16},
+            },
+            'steps': {'countSum': '5000'},
           },
           {
-            'userId': 'user_123',
-            'startTime': '2026-01-16T00:00:00Z',
-            'value': 7500,
+            'civilStartTime': {
+              'date': {'year': 2026, 'month': 1, 'day': 16},
+            },
+            'civilEndTime': {
+              'date': {'year': 2026, 'month': 1, 'day': 17},
+            },
+            'steps': {'countSum': '7500'},
           },
         ],
       });
@@ -50,9 +58,13 @@ void main() {
       var endpointHit = false;
       final client = MockClient((request) async {
         if (request.url.path ==
-            '/v4/users/me/dataTypes/steps/dataPoints:dailyRollup') {
+                '/v4/users/me/dataTypes/steps/dataPoints:dailyRollUp' &&
+            request.method == 'POST') {
           endpointHit = true;
           expect(request.headers['Authorization'], 'Bearer valid_token');
+          expect(request.headers['Content-Type'], contains('application/json'));
+          final decoded = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(decoded['range'], isNotNull);
           return http.Response(body, 200);
         }
         return http.Response('Not found', 404);
@@ -71,8 +83,8 @@ void main() {
 
       expect(endpointHit, isTrue);
       expect(result.data, hasLength(2));
-      expect(result.data.first.value, 5000);
-      expect(result.data[1].value, 7500);
+      expect(result.data.first.count, 5000);
+      expect(result.data[1].count, 7500);
       expect(result.credentials.accessToken, credentials.accessToken);
     });
 
@@ -91,7 +103,6 @@ void main() {
       final result = await manager.fetch(
         GoogleHealthStepsAPIURL.day(date: DateTime(2026, 1, 15)),
       );
-
       expect(result.data, isEmpty);
     });
 
@@ -120,7 +131,6 @@ void main() {
       final result = await manager.fetch(
         GoogleHealthStepsAPIURL.day(date: DateTime(2026, 1, 15)),
       );
-
       expect(result.credentials.accessToken, 'new_access_token');
     });
 
@@ -146,7 +156,8 @@ void main() {
 
     test('fetch() throws GoogleHealthRateLimitException on 429', () async {
       final client = MockClient((request) async {
-        return http.Response('Rate limit exceeded', 429);
+        return http.Response('Rate limit exceeded', 429,
+            headers: {'retry-after': '30'});
       });
 
       final manager = GoogleHealthStepsDataManager(

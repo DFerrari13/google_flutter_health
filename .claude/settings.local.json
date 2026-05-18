@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter clean *)",
+      "Bash(flutter pub *)",
+      "Bash(dart analyze *)",
+      "WebFetch(domain:developers.google.com)"
+    ]
+  }
+}

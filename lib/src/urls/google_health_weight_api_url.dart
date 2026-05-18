@@ -1,59 +1,62 @@
 import 'google_health_api_url.dart';
+import '_request_helpers.dart';
 
-/// URL builder for the Google Health weight data type.
+/// URL builder for the Google Health `weight` data type.
 ///
-/// Weight is logged sporadically — only range queries are exposed.
-/// There is no single-day `day()` variant.
+/// Weight is a Sample record type. The API supports `list` (raw samples),
+/// `rollUp`, and `dailyRollUp`.
 class GoogleHealthWeightAPIURL extends GoogleHealthAPIURL {
-  GoogleHealthWeightAPIURL._({required super.uri});
+  const GoogleHealthWeightAPIURL._({
+    required super.uri,
+    required super.method,
+    super.body,
+  });
 
-  /// Builds a URL for weight measurements in a date range using `dataPoints`.
-  ///
-  /// Returns every logged weight event within the range.
-  ///
-  /// - [startDate]: First day of the range (inclusive). Time components are ignored.
-  /// - [endDate]: Last day of the range (inclusive). Time components are ignored.
+  /// The data-type identifier used by the Google Health API.
+  static const String dataType = 'weight';
+
+  /// Builds a `dailyRollUp` request covering a single day.
+  factory GoogleHealthWeightAPIURL.day({required DateTime date}) {
+    return GoogleHealthWeightAPIURL.dateRange(startDate: date, endDate: date);
+  }
+
+  /// Builds a `dailyRollUp` request covering an inclusive date range.
   factory GoogleHealthWeightAPIURL.dateRange({
     required DateTime startDate,
     required DateTime endDate,
   }) {
-    final start = DateTime.utc(
-      startDate.year,
-      startDate.month,
-      startDate.day,
-    );
-    final end = DateTime.utc(
-      endDate.year,
-      endDate.month,
-      endDate.day,
-    ).add(const Duration(days: 1));
     final uri = Uri.https(
       'health.googleapis.com',
-      '/v4/users/me/dataTypes/weight/dataPoints',
-      {
-        'startTime': start.toIso8601String(),
-        'endTime': end.toIso8601String(),
-      },
+      '/v4/users/me/dataTypes/$dataType/dataPoints:dailyRollUp',
     );
-    return GoogleHealthWeightAPIURL._(uri: uri);
+    return GoogleHealthWeightAPIURL._(
+      uri: uri,
+      method: GoogleHealthRequestMethod.post,
+      body: buildCivilRange(
+        startDate: startDate,
+        endDate: exclusiveDayAfter(endDate),
+      ),
+    );
   }
 
-  /// Builds a URL for intraday weight events using `dataPoints`.
-  ///
-  /// - [startTime]: Start of the time window (UTC is recommended).
-  /// - [endTime]: End of the time window (UTC is recommended).
+  /// Builds a `list` request returning raw weight samples in the window.
   factory GoogleHealthWeightAPIURL.intraday({
     required DateTime startTime,
     required DateTime endTime,
   }) {
+    final filter = buildTimeFilter(
+      fieldPath: 'weight.sample_time.physical_time',
+      startTime: startTime,
+      endTime: endTime,
+    );
     final uri = Uri.https(
       'health.googleapis.com',
-      '/v4/users/me/dataTypes/weight/dataPoints',
-      {
-        'startTime': startTime.toUtc().toIso8601String(),
-        'endTime': endTime.toUtc().toIso8601String(),
-      },
+      '/v4/users/me/dataTypes/$dataType/dataPoints',
+      {'filter': filter},
     );
-    return GoogleHealthWeightAPIURL._(uri: uri);
+    return GoogleHealthWeightAPIURL._(
+      uri: uri,
+      method: GoogleHealthRequestMethod.get,
+    );
   }
 }

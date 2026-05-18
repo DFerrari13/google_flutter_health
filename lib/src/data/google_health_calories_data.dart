@@ -1,47 +1,57 @@
-/// A single calories data point from the Google Health API.
+import '_parsing_helpers.dart';
+
+/// A single calories data point from the Google Health API
+/// (`total-calories` data type).
 ///
-/// When using the `dailyRollup` endpoint, each instance represents the total
-/// energy expenditure for one calendar day. When using the `dataPoints` list
-/// endpoint, each instance represents an individual calories event.
+/// `total-calories` only supports rollup endpoints. For `dailyRollUp`
+/// responses, [calories] holds the daily sum (`energyKilocaloriesSum`).
 class GoogleHealthCaloriesData {
-  /// The Google Health user ID associated with this data point.
-  final String? userId;
+  final String? name;
+  final DateTime? startTime;
+  final DateTime? endTime;
 
-  /// The timestamp of this data point in local time.
-  ///
-  /// For daily rollup results this is the start of the calendar day.
-  /// For intraday results this is the start of the calories event.
-  final DateTime? dateTime;
-
-  /// The total energy expenditure for this data point, in kilocalories.
+  /// Energy expenditure in kilocalories.
   final double? calories;
 
   const GoogleHealthCaloriesData({
-    this.userId,
-    this.dateTime,
+    this.name,
+    this.startTime,
+    this.endTime,
     this.calories,
   });
 
-  /// Creates a [GoogleHealthCaloriesData] from a raw API JSON map.
   factory GoogleHealthCaloriesData.fromJson(Map<String, dynamic> json) {
+    final field = json['totalCalories'];
+    final t = field is Map<String, dynamic> ? field : const <String, dynamic>{};
+
+    if (json.containsKey('civilStartTime')) {
+      return GoogleHealthCaloriesData(
+        name: json['name'] as String?,
+        startTime: parseCivilDateTime(json['civilStartTime']),
+        endTime: parseCivilDateTime(json['civilEndTime']),
+        calories: parseNumber(t['energyKilocaloriesSum'] ??
+            t['caloriesSum'] ??
+            t['energyKilocalories'] ??
+            t['calories']),
+      );
+    }
+
     return GoogleHealthCaloriesData(
-      userId: json['userId'] as String?,
-      dateTime: json['startTime'] != null
-          ? DateTime.parse(json['startTime'] as String).toLocal()
-          : null,
-      calories: (json['value'] as num?)?.toDouble(),
+      name: json['name'] as String?,
+      startTime: parsePhysicalTime((json['interval'] as Map?)?['startTime']),
+      endTime: parsePhysicalTime((json['interval'] as Map?)?['endTime']),
+      calories: parseNumber(t['energyKilocalories'] ?? t['calories']),
     );
   }
 
-  /// Serialises this data point to a JSON-compatible map.
   Map<String, dynamic> toJson() => {
-        'userId': userId,
-        'startTime': dateTime?.toUtc().toIso8601String(),
-        'value': calories,
+        'name': name,
+        'startTime': startTime?.toUtc().toIso8601String(),
+        'endTime': endTime?.toUtc().toIso8601String(),
+        'calories': calories,
       };
 
   @override
-  String toString() =>
-      'GoogleHealthCaloriesData(userId: $userId, dateTime: $dateTime, '
-      'calories: $calories)';
+  String toString() => 'GoogleHealthCaloriesData(name: $name, '
+      'startTime: $startTime, endTime: $endTime, calories: $calories)';
 }

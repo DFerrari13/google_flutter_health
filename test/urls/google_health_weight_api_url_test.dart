@@ -3,38 +3,24 @@ import 'package:google_flutter_health/google_flutter_health.dart';
 
 void main() {
   group('GoogleHealthWeightAPIURL', () {
-    test('dateRange() spans startDate 00:00 UTC to endDate+1 00:00 UTC', () {
-      final url = GoogleHealthWeightAPIURL.dateRange(
-        startDate: DateTime(2026, 1, 1),
-        endDate: DateTime(2026, 1, 31),
-      );
-      expect(url.uri.host, 'health.googleapis.com');
-      expect(url.uri.path, '/v4/users/me/dataTypes/weight/dataPoints');
+    test('day() builds POST dailyRollUp request', () {
+      final url = GoogleHealthWeightAPIURL.day(date: DateTime(2026, 1, 15));
       expect(
-        url.uri.queryParameters['startTime'],
-        DateTime.utc(2026, 1, 1).toIso8601String(),
+        url.uri.toString(),
+        'https://health.googleapis.com/v4/users/me/dataTypes/weight/dataPoints:dailyRollUp',
       );
-      expect(
-        url.uri.queryParameters['endTime'],
-        DateTime.utc(2026, 2, 1).toIso8601String(),
-      );
+      expect(url.method, GoogleHealthRequestMethod.post);
     });
 
-    test('intraday() uses provided ISO timestamps verbatim', () {
-      final start = DateTime.utc(2026, 1, 15, 8);
-      final end = DateTime.utc(2026, 1, 15, 10);
+    test('intraday() builds GET list URL with filter', () {
       final url = GoogleHealthWeightAPIURL.intraday(
-        startTime: start,
-        endTime: end,
+        startTime: DateTime.utc(2026, 1, 15),
+        endTime: DateTime.utc(2026, 1, 16),
       );
-      expect(url.uri.path, '/v4/users/me/dataTypes/weight/dataPoints');
+      expect(url.method, GoogleHealthRequestMethod.get);
       expect(
-        url.uri.queryParameters['startTime'],
-        start.toIso8601String(),
-      );
-      expect(
-        url.uri.queryParameters['endTime'],
-        end.toIso8601String(),
+        url.uri.queryParameters['filter'],
+        contains('weight.sample_time.physical_time'),
       );
     });
   });

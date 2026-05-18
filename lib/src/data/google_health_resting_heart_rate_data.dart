@@ -1,44 +1,58 @@
+import '_parsing_helpers.dart';
+
 /// A single daily resting heart rate data point from the Google Health API.
 ///
-/// Resting heart rate is a daily-only metric — each instance represents the
-/// computed resting heart rate for one calendar day.
+/// Resting heart rate is a Daily-aggregated metric. Each instance represents
+/// the resting heart rate for one civil day in [beatsPerMinute].
 class GoogleHealthRestingHeartRateData {
-  /// The Google Health user ID associated with this data point.
-  final String? userId;
-
-  /// The timestamp of this data point in local time (start of the calendar day).
-  final DateTime? dateTime;
-
-  /// Resting heart rate in beats per minute (bpm).
+  final String? name;
+  final DateTime? startTime;
+  final DateTime? endTime;
   final double? beatsPerMinute;
 
   const GoogleHealthRestingHeartRateData({
-    this.userId,
-    this.dateTime,
+    this.name,
+    this.startTime,
+    this.endTime,
     this.beatsPerMinute,
   });
 
-  /// Creates a [GoogleHealthRestingHeartRateData] from a raw API JSON map.
   factory GoogleHealthRestingHeartRateData.fromJson(
-    Map<String, dynamic> json,
-  ) {
+      Map<String, dynamic> json) {
+    final field = json['dailyRestingHeartRate'];
+    final r = field is Map<String, dynamic> ? field : const <String, dynamic>{};
+
+    final civilField = r['civilDateTime'] ?? r['interval'];
+
+    DateTime? start;
+    DateTime? end;
+    if (civilField is Map<String, dynamic>) {
+      start = parseCivilDateTime(civilField['startTime']) ??
+          parsePhysicalTime(civilField['startTime']);
+      end = parseCivilDateTime(civilField['endTime']) ??
+          parsePhysicalTime(civilField['endTime']);
+    }
     return GoogleHealthRestingHeartRateData(
-      userId: json['userId'] as String?,
-      dateTime: json['startTime'] != null
-          ? DateTime.parse(json['startTime'] as String).toLocal()
-          : null,
-      beatsPerMinute: (json['value'] as num?)?.toDouble(),
+      name: json['name'] as String?,
+      startTime: start ??
+          parseCivilDateTime(json['civilStartTime']) ??
+          parsePhysicalTime(json['startTime']),
+      endTime: end ??
+          parseCivilDateTime(json['civilEndTime']) ??
+          parsePhysicalTime(json['endTime']),
+      beatsPerMinute: parseNumber(r['beatsPerMinute']),
     );
   }
 
-  /// Serialises this data point to a JSON-compatible map.
   Map<String, dynamic> toJson() => {
-        'userId': userId,
-        'startTime': dateTime?.toUtc().toIso8601String(),
-        'value': beatsPerMinute,
+        'name': name,
+        'startTime': startTime?.toUtc().toIso8601String(),
+        'endTime': endTime?.toUtc().toIso8601String(),
+        'beatsPerMinute': beatsPerMinute,
       };
 
   @override
-  String toString() => 'GoogleHealthRestingHeartRateData('
-      'userId: $userId, dateTime: $dateTime, beatsPerMinute: $beatsPerMinute)';
+  String toString() => 'GoogleHealthRestingHeartRateData(name: $name, '
+      'startTime: $startTime, endTime: $endTime, '
+      'beatsPerMinute: $beatsPerMinute)';
 }

@@ -3,44 +3,29 @@ import 'package:google_flutter_health/google_flutter_health.dart';
 
 void main() {
   group('GoogleHealthHeartRateAPIURL', () {
-    test('day() builds dailyRollup URL with same start/end date', () {
-      final url = GoogleHealthHeartRateAPIURL.day(date: DateTime(2026, 1, 15));
+    test('day() builds POST dailyRollUp with civil range', () {
+      final url =
+          GoogleHealthHeartRateAPIURL.day(date: DateTime(2026, 1, 15));
       expect(
         url.uri.toString(),
-        'https://health.googleapis.com/v4/users/me/dataTypes/heart-rate/dataPoints:dailyRollup'
-        '?startTime=2026-01-15&endTime=2026-01-15',
+        'https://health.googleapis.com/v4/users/me/dataTypes/heart-rate/dataPoints:dailyRollUp',
       );
+      expect(url.method, GoogleHealthRequestMethod.post);
     });
 
-    test('dateRange() builds dailyRollup URL with provided range', () {
-      final url = GoogleHealthHeartRateAPIURL.dateRange(
-        startDate: DateTime(2026, 1, 1),
-        endDate: DateTime(2026, 1, 31),
-      );
-      expect(
-        url.uri.toString(),
-        'https://health.googleapis.com/v4/users/me/dataTypes/heart-rate/dataPoints:dailyRollup'
-        '?startTime=2026-01-01&endTime=2026-01-31',
-      );
-    });
-
-    test('intraday() builds dataPoints URL with full ISO timestamps', () {
+    test('intraday() filter targets heart_rate.sample_time.physical_time', () {
       final start = DateTime.utc(2026, 1, 15, 10);
       final end = DateTime.utc(2026, 1, 15, 12);
       final url = GoogleHealthHeartRateAPIURL.intraday(
         startTime: start,
         endTime: end,
       );
-      expect(url.uri.host, 'health.googleapis.com');
+      expect(url.method, GoogleHealthRequestMethod.get);
       expect(url.uri.path, '/v4/users/me/dataTypes/heart-rate/dataPoints');
-      expect(
-        url.uri.queryParameters['startTime'],
-        start.toIso8601String(),
-      );
-      expect(
-        url.uri.queryParameters['endTime'],
-        end.toIso8601String(),
-      );
+      final filter = url.uri.queryParameters['filter']!;
+      expect(filter, contains('heart_rate.sample_time.physical_time'));
+      expect(filter, contains(start.toIso8601String()));
+      expect(filter, contains(end.toIso8601String()));
     });
   });
 }

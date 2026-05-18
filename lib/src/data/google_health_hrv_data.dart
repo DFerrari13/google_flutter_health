@@ -1,77 +1,70 @@
-/// A single daily heart rate variability (HRV) data point from the Google Health API.
-///
-/// HRV is a daily-only metric — each instance represents the computed HRV
-/// measures for one calendar day.
+import '_parsing_helpers.dart';
+
+/// A single daily heart rate variability (HRV) data point from the Google
+/// Health API.
 class GoogleHealthHrvData {
-  /// The Google Health user ID associated with this data point.
-  final String? userId;
+  final String? name;
+  final DateTime? startTime;
+  final DateTime? endTime;
 
-  /// The timestamp of this data point in local time (start of the calendar day).
-  final DateTime? dateTime;
-
-  /// Root mean square of successive differences in milliseconds (ms).
+  /// Root mean square of successive differences, in milliseconds.
   final double? rmssd;
 
-  /// Fraction of the day with valid HRV measurements (0.0–1.0).
+  /// Fraction of the day with valid HRV data, between 0.0 and 1.0.
   final double? coverage;
 
-  /// High-frequency power band (ms²).
+  /// High-frequency band power, in ms^2.
   final double? hfPower;
 
-  /// Low-frequency power band (ms²).
+  /// Low-frequency band power, in ms^2.
   final double? lfPower;
 
   const GoogleHealthHrvData({
-    this.userId,
-    this.dateTime,
+    this.name,
+    this.startTime,
+    this.endTime,
     this.rmssd,
     this.coverage,
     this.hfPower,
     this.lfPower,
   });
 
-  /// Creates a [GoogleHealthHrvData] from a raw API JSON map.
-  ///
-  /// The Google Health API returns HRV components under a nested `value`
-  /// object with keys `rmssd`, `coverage`, `hfPower`, and `lfPower`.
-  /// Top-level keys are also accepted for convenience.
   factory GoogleHealthHrvData.fromJson(Map<String, dynamic> json) {
-    final value = json['value'];
-    final inner =
-        value is Map<String, dynamic> ? value : const <String, dynamic>{};
+    final field = json['dailyHeartRateVariability'];
+    final h = field is Map<String, dynamic> ? field : const <String, dynamic>{};
 
-    double? readDouble(String key) {
-      final v = inner[key] ?? json[key];
-      return (v as num?)?.toDouble();
+    DateTime? start;
+    DateTime? end;
+    final civilField = h['civilDateTime'] ?? h['interval'];
+    if (civilField is Map<String, dynamic>) {
+      start = parseCivilDateTime(civilField['startTime']) ??
+          parsePhysicalTime(civilField['startTime']);
+      end = parseCivilDateTime(civilField['endTime']) ??
+          parsePhysicalTime(civilField['endTime']);
     }
-
     return GoogleHealthHrvData(
-      userId: json['userId'] as String?,
-      dateTime: json['startTime'] != null
-          ? DateTime.parse(json['startTime'] as String).toLocal()
-          : null,
-      rmssd: readDouble('rmssd'),
-      coverage: readDouble('coverage'),
-      hfPower: readDouble('hfPower'),
-      lfPower: readDouble('lfPower'),
+      name: json['name'] as String?,
+      startTime: start ?? parseCivilDateTime(json['civilStartTime']),
+      endTime: end ?? parseCivilDateTime(json['civilEndTime']),
+      rmssd: parseNumber(h['rmssd']),
+      coverage: parseNumber(h['coverage']),
+      hfPower: parseNumber(h['hfPower'] ?? h['highFrequencyPower']),
+      lfPower: parseNumber(h['lfPower'] ?? h['lowFrequencyPower']),
     );
   }
 
-  /// Serialises this data point to a JSON-compatible map.
   Map<String, dynamic> toJson() => {
-        'userId': userId,
-        'startTime': dateTime?.toUtc().toIso8601String(),
-        'value': {
-          'rmssd': rmssd,
-          'coverage': coverage,
-          'hfPower': hfPower,
-          'lfPower': lfPower,
-        },
+        'name': name,
+        'startTime': startTime?.toUtc().toIso8601String(),
+        'endTime': endTime?.toUtc().toIso8601String(),
+        'rmssd': rmssd,
+        'coverage': coverage,
+        'hfPower': hfPower,
+        'lfPower': lfPower,
       };
 
   @override
-  String toString() => 'GoogleHealthHrvData('
-      'userId: $userId, dateTime: $dateTime, '
-      'rmssd: $rmssd, coverage: $coverage, '
-      'hfPower: $hfPower, lfPower: $lfPower)';
+  String toString() => 'GoogleHealthHrvData(name: $name, '
+      'startTime: $startTime, endTime: $endTime, rmssd: $rmssd, '
+      'coverage: $coverage, hfPower: $hfPower, lfPower: $lfPower)';
 }

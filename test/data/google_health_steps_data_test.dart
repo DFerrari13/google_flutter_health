@@ -3,51 +3,71 @@ import 'package:google_flutter_health/google_flutter_health.dart';
 
 void main() {
   group('GoogleHealthStepsData', () {
-    final fullJson = <String, dynamic>{
-      'userId': 'user_123',
-      'startTime': '2026-01-15T10:00:00Z',
-      'value': 1234,
-    };
+    test('fromJson parses a dailyRollUp data point', () {
+      final data = GoogleHealthStepsData.fromJson(<String, dynamic>{
+        'civilStartTime': {
+          'date': {'year': 2026, 'month': 1, 'day': 15},
+        },
+        'civilEndTime': {
+          'date': {'year': 2026, 'month': 1, 'day': 16},
+        },
+        'steps': {'countSum': '12000'},
+      });
+      expect(data.startTime, DateTime(2026, 1, 15));
+      expect(data.endTime, DateTime(2026, 1, 16));
+      expect(data.count, 12000);
+    });
 
-    test('fromJson parses all fields correctly', () {
-      final data = GoogleHealthStepsData.fromJson(fullJson);
-      expect(data.userId, 'user_123');
+    test('fromJson parses a raw list data point', () {
+      final data = GoogleHealthStepsData.fromJson(<String, dynamic>{
+        'name': 'users/me/dataTypes/steps/dataPoints/abc123',
+        'steps': {
+          'count': '50',
+          'interval': {
+            'startTime': '2026-01-15T10:00:00Z',
+            'endTime': '2026-01-15T10:15:00Z',
+          },
+        },
+      });
+      expect(data.name, 'users/me/dataTypes/steps/dataPoints/abc123');
       expect(
-        data.dateTime,
+        data.startTime,
         DateTime.parse('2026-01-15T10:00:00Z').toLocal(),
       );
-      expect(data.value, 1234);
+      expect(
+        data.endTime,
+        DateTime.parse('2026-01-15T10:15:00Z').toLocal(),
+      );
+      expect(data.count, 50);
     });
 
-    test('fromJson coerces fractional value to int', () {
-      final data = GoogleHealthStepsData.fromJson({
-        ...fullJson,
-        'value': 1234.7,
+    test('fromJson accepts numeric count in addition to string', () {
+      final data = GoogleHealthStepsData.fromJson(<String, dynamic>{
+        'steps': {'count': 75},
       });
-      expect(data.value, 1234);
+      expect(data.count, 75);
     });
 
-    test('toJson serializes correctly', () {
-      final data = GoogleHealthStepsData.fromJson(fullJson);
+    test('fromJson handles missing fields gracefully', () {
+      final data = GoogleHealthStepsData.fromJson(<String, dynamic>{});
+      expect(data.name, isNull);
+      expect(data.startTime, isNull);
+      expect(data.endTime, isNull);
+      expect(data.count, isNull);
+    });
+
+    test('toJson exposes the canonical Dart-side shape', () {
+      final data = GoogleHealthStepsData(
+        name: 'users/me/dataTypes/steps/dataPoints/abc123',
+        startTime: DateTime.utc(2026, 1, 15, 10),
+        endTime: DateTime.utc(2026, 1, 15, 10, 15),
+        count: 50,
+      );
       final json = data.toJson();
-      expect(json['userId'], 'user_123');
+      expect(json['name'], 'users/me/dataTypes/steps/dataPoints/abc123');
       expect(json['startTime'], '2026-01-15T10:00:00.000Z');
-      expect(json['value'], 1234);
-    });
-
-    test('fromJson/toJson roundtrip', () {
-      final original = GoogleHealthStepsData.fromJson(fullJson);
-      final roundtripped = GoogleHealthStepsData.fromJson(original.toJson());
-      expect(roundtripped.userId, original.userId);
-      expect(roundtripped.dateTime, original.dateTime);
-      expect(roundtripped.value, original.value);
-    });
-
-    test('fromJson handles null fields gracefully', () {
-      final data = GoogleHealthStepsData.fromJson({});
-      expect(data.userId, isNull);
-      expect(data.dateTime, isNull);
-      expect(data.value, isNull);
+      expect(json['endTime'], '2026-01-15T10:15:00.000Z');
+      expect(json['count'], 50);
     });
   });
 }

@@ -1,73 +1,67 @@
-/// A single daily oxygen saturation (SpO2) data point from the Google Health API.
+import '_parsing_helpers.dart';
+
+/// A single daily oxygen saturation (SpO2) data point from the Google Health
+/// API.
 ///
-/// SpO2 is a daily-only metric — each instance represents the average,
-/// minimum, and maximum oxygen saturation for one calendar day.
+/// SpO2 is a Daily-aggregated metric. Each instance represents the average,
+/// minimum, and maximum SpO2 for one civil day.
 class GoogleHealthOxygenSaturationData {
-  /// The Google Health user ID associated with this data point.
-  final String? userId;
-
-  /// The timestamp of this data point in local time (start of the calendar day).
-  final DateTime? dateTime;
-
-  /// Average SpO2 for the day, as a percentage (0–100).
-  final double? spo2Percentage;
-
-  /// Minimum SpO2 observed during the day, as a percentage (0–100).
-  final double? spo2Low;
-
-  /// Maximum SpO2 observed during the day, as a percentage (0–100).
-  final double? spo2High;
+  final String? name;
+  final DateTime? startTime;
+  final DateTime? endTime;
+  final double? percentageAvg;
+  final double? percentageMin;
+  final double? percentageMax;
 
   const GoogleHealthOxygenSaturationData({
-    this.userId,
-    this.dateTime,
-    this.spo2Percentage,
-    this.spo2Low,
-    this.spo2High,
+    this.name,
+    this.startTime,
+    this.endTime,
+    this.percentageAvg,
+    this.percentageMin,
+    this.percentageMax,
   });
 
-  /// Creates a [GoogleHealthOxygenSaturationData] from a raw API JSON map.
-  ///
-  /// The Google Health API returns SpO2 components under a nested `value`
-  /// object with keys `spo2Percentage`, `spo2Low`, and `spo2High`. Top-level
-  /// keys are also accepted for convenience.
   factory GoogleHealthOxygenSaturationData.fromJson(
-    Map<String, dynamic> json,
-  ) {
-    final value = json['value'];
-    final inner =
-        value is Map<String, dynamic> ? value : const <String, dynamic>{};
+      Map<String, dynamic> json) {
+    final field = json['dailyOxygenSaturation'];
+    final o = field is Map<String, dynamic> ? field : const <String, dynamic>{};
 
-    double? readDouble(String key) {
-      final v = inner[key] ?? json[key];
-      return (v as num?)?.toDouble();
+    DateTime? start;
+    DateTime? end;
+    final civilField = o['civilDateTime'] ?? o['interval'];
+    if (civilField is Map<String, dynamic>) {
+      start = parseCivilDateTime(civilField['startTime']) ??
+          parsePhysicalTime(civilField['startTime']);
+      end = parseCivilDateTime(civilField['endTime']) ??
+          parsePhysicalTime(civilField['endTime']);
     }
-
     return GoogleHealthOxygenSaturationData(
-      userId: json['userId'] as String?,
-      dateTime: json['startTime'] != null
-          ? DateTime.parse(json['startTime'] as String).toLocal()
-          : null,
-      spo2Percentage: readDouble('spo2Percentage'),
-      spo2Low: readDouble('spo2Low'),
-      spo2High: readDouble('spo2High'),
+      name: json['name'] as String?,
+      startTime: start ?? parseCivilDateTime(json['civilStartTime']),
+      endTime: end ?? parseCivilDateTime(json['civilEndTime']),
+      percentageAvg: parseNumber(
+        o['percentageAvg'] ?? o['spo2PercentageAvg'] ?? o['percentage'],
+      ),
+      percentageMin:
+          parseNumber(o['percentageMin'] ?? o['spo2PercentageMin']),
+      percentageMax:
+          parseNumber(o['percentageMax'] ?? o['spo2PercentageMax']),
     );
   }
 
-  /// Serialises this data point to a JSON-compatible map.
   Map<String, dynamic> toJson() => {
-        'userId': userId,
-        'startTime': dateTime?.toUtc().toIso8601String(),
-        'value': {
-          'spo2Percentage': spo2Percentage,
-          'spo2Low': spo2Low,
-          'spo2High': spo2High,
-        },
+        'name': name,
+        'startTime': startTime?.toUtc().toIso8601String(),
+        'endTime': endTime?.toUtc().toIso8601String(),
+        'percentageAvg': percentageAvg,
+        'percentageMin': percentageMin,
+        'percentageMax': percentageMax,
       };
 
   @override
-  String toString() => 'GoogleHealthOxygenSaturationData('
-      'userId: $userId, dateTime: $dateTime, '
-      'spo2Percentage: $spo2Percentage, spo2Low: $spo2Low, '
-      'spo2High: $spo2High)';
+  String toString() => 'GoogleHealthOxygenSaturationData(name: $name, '
+      'startTime: $startTime, endTime: $endTime, '
+      'percentageAvg: $percentageAvg, percentageMin: $percentageMin, '
+      'percentageMax: $percentageMax)';
 }

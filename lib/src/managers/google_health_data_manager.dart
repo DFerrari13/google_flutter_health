@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:meta/meta.dart';
 
 import '../connectors/google_health_credentials.dart';
 import '../exceptions/google_health_exceptions.dart';
@@ -8,11 +9,11 @@ import '../urls/google_health_api_url.dart';
 
 /// Abstract base class for all Google Health data managers.
 ///
-/// Each concrete subclass (e.g. [GoogleHealthStepsDataManager]) implements
-/// [fetch] for a specific data type. Managers handle token refresh
-/// transparently — if [credentials] is expired, the token is refreshed
-/// before the API request and the updated credentials are returned in the
-/// result record.
+/// Each concrete subclass (e.g. `GoogleHealthStepsDataManager`) implements
+/// [parseDataPoints] for a specific data type. Managers handle token refresh
+/// transparently — if [credentials] is expired, the token is refreshed before
+/// the API request and the updated credentials are returned in the result
+/// record.
 ///
 /// ```dart
 /// final manager = GoogleHealthStepsDataManager(
@@ -71,9 +72,35 @@ abstract class GoogleHealthDataManager<T> {
   /// refresh fails (e.g. the refresh token has been revoked).
   /// Throws [GoogleHealthRateLimitException] on HTTP 429.
   /// Throws [GoogleHealthDataTypeException] on other HTTP errors.
+  /// Throws [GoogleHealthDataException] if the response body cannot be parsed.
   Future<({List<T> data, GoogleHealthCredentials credentials})> fetch(
     GoogleHealthAPIURL url,
-  );
+  ) async {
+    final creds = await refreshIfNeeded(credentials);
+    final response = await executeRequest(url: url, credentials: creds);
+    checkResponse(response);
+
+    Map<String, dynamic> json;
+    try {
+      json = jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      throw GoogleHealthDataException('Failed to decode API response: $e');
+    }
+    final data = parseDataPoints(json);
+    return (data: data, credentials: creds);
+  }
+
+  /// Parses the decoded API response into a list of [T] data points.
+  ///
+  /// Concrete subclasses implement this for their specific data type. The
+  /// response shape depends on the endpoint:
+  ///
+  ///  * `list` responses contain `{"dataPoints": [...]}`.
+  ///  * `dailyRollUp` responses contain `{"dataPoints": [...]}` with
+  ///    `civilStartTime` / `civilEndTime` and aggregated values.
+  ///  * Profile and identity endpoints have endpoint-specific shapes.
+  @protected
+  List<T> parseDataPoints(Map<String, dynamic> json);
 
   /// Refreshes the access token if it is expired or about to expire.
   ///
@@ -110,5 +137,58 @@ abstract class GoogleHealthDataManager<T> {
       userID: creds.userID,
       scopes: creds.scopes,
     );
+  }
+
+  /// Dispatches the HTTP request using [GoogleHealthAPIURL.method].
+  ///
+  /// GET requests send only the `Authorization` header. POST requests send
+  /// `Authorization` plus `Content-Type: application/json` with
+  /// [GoogleHealthAPIURL.body] as the JSON body.
+  @protected
+  Future<http.Response> executeRequest({
+    required GoogleHealthAPIURL url,
+    required GoogleHealthCredentials credentials,
+  }) {
+    final headers = <String, String>{
+      'Authorization': 'Bearer ${credentials.accessToken}',
+    };
+    if (url.method == GoogleHealthRequestMethod.post) {
+      headers['Content-Type'] = 'application/json';
+      return httpClient.post(
+        url.uri,
+        headers: headers,
+        body: jsonEncode(url.body ?? const <String, dynamic>{}),
+      );
+    }
+    return httpClient.get(url.uri, headers: headers);
+  }
+
+  /// Maps HTTP status codes to [GoogleHealthException] subclasses.
+  ///
+  ///  * 401 → [GoogleHealthTokenExpiredException]
+  ///  * 429 → [GoogleHealthRateLimitException] (with `Retry-After` if present)
+  ///  * any other non-2xx → [GoogleHealthDataTypeException]
+  @protected
+  void checkResponse(http.Response response) {
+    if (response.statusCode == 401) {
+      throw const GoogleHealthTokenExpiredException(
+        'Unauthorized: access token rejected by the API.',
+      );
+    }
+    if (response.statusCode == 429) {
+      final retryAfterHeader = response.headers['retry-after'];
+      final retryAfter = retryAfterHeader != null
+          ? Duration(seconds: int.tryParse(retryAfterHeader) ?? 0)
+          : null;
+      throw GoogleHealthRateLimitException(
+        'Rate limit exceeded.',
+        retryAfter: retryAfter,
+      );
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw GoogleHealthDataTypeException(
+        'API error: ${response.statusCode} ${response.body}',
+      );
+    }
   }
 }

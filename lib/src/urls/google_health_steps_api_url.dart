@@ -1,76 +1,93 @@
 import 'google_health_api_url.dart';
+import '_request_helpers.dart';
 
 /// URL builder for the Google Health steps data type.
 ///
-/// Use the factory constructors to build the appropriate URL, then pass the
-/// instance to [GoogleHealthStepsDataManager.fetch].
+/// Use the factory constructors to build the appropriate request, then pass
+/// the instance to `GoogleHealthStepsDataManager.fetch`.
+///
+/// The Google Health REST API uses three different methods for time-series
+/// data:
+///
+///  * `dailyRollUp` (POST) — aggregates one civil-day bucket per day.
+///  * `rollUp` (POST) — aggregates over fixed physical-time windows.
+///  * `list` (GET) — returns raw data points within a time range.
 ///
 /// ```dart
-/// // Today's step count
+/// // Today's step count (daily roll-up).
 /// final url = GoogleHealthStepsAPIURL.day(date: DateTime.now());
 ///
-/// // Step count over a date range
+/// // Step count over a date range (daily roll-up).
 /// final url = GoogleHealthStepsAPIURL.dateRange(
 ///   startDate: DateTime(2024, 1, 1),
 ///   endDate: DateTime(2024, 1, 31),
 /// );
+///
+/// // Raw intraday step events (list).
+/// final url = GoogleHealthStepsAPIURL.intraday(
+///   startTime: DateTime.now().subtract(const Duration(hours: 1)),
+///   endTime: DateTime.now(),
+/// );
 /// ```
 class GoogleHealthStepsAPIURL extends GoogleHealthAPIURL {
-  GoogleHealthStepsAPIURL._({required super.uri});
+  const GoogleHealthStepsAPIURL._({
+    required super.uri,
+    required super.method,
+    super.body,
+  });
 
-  /// Builds a URL for a single day's step count using the `dailyRollup` endpoint.
+  /// The data-type identifier used by the Google Health API.
+  static const String dataType = 'steps';
+
+  /// Builds a request for a single calendar day using `dailyRollUp`.
   ///
-  /// - [date]: The calendar day to query. Time components are ignored.
+  /// - [date]: The day to query. Time components are ignored.
   factory GoogleHealthStepsAPIURL.day({required DateTime date}) {
-    final uri = Uri.https(
-      'health.googleapis.com',
-      '/v4/users/me/dataTypes/steps/dataPoints:dailyRollup',
-      {'startTime': _formatDate(date), 'endTime': _formatDate(date)},
-    );
-    return GoogleHealthStepsAPIURL._(uri: uri);
+    return GoogleHealthStepsAPIURL.dateRange(startDate: date, endDate: date);
   }
 
-  /// Builds a URL for a date range using the `dailyRollup` endpoint.
+  /// Builds a request for an inclusive date range using `dailyRollUp`.
   ///
-  /// Returns one data point per day in the range.
-  ///
-  /// - [startDate]: First day of the range (inclusive). Time components are ignored.
-  /// - [endDate]: Last day of the range (inclusive). Time components are ignored.
+  /// Returns one rolled-up data point per civil day.
   factory GoogleHealthStepsAPIURL.dateRange({
     required DateTime startDate,
     required DateTime endDate,
   }) {
     final uri = Uri.https(
       'health.googleapis.com',
-      '/v4/users/me/dataTypes/steps/dataPoints:dailyRollup',
-      {'startTime': _formatDate(startDate), 'endTime': _formatDate(endDate)},
+      '/v4/users/me/dataTypes/$dataType/dataPoints:dailyRollUp',
     );
-    return GoogleHealthStepsAPIURL._(uri: uri);
+    final body = buildCivilRange(
+      startDate: startDate,
+      endDate: exclusiveDayAfter(endDate),
+    );
+    return GoogleHealthStepsAPIURL._(
+      uri: uri,
+      method: GoogleHealthRequestMethod.post,
+      body: body,
+    );
   }
 
-  /// Builds a URL for intraday step data using the `dataPoints` list endpoint.
+  /// Builds a request for raw intraday step events using `list`.
   ///
   /// Returns individual step events within the given time window.
-  ///
-  /// - [startTime]: Start of the time window (UTC is recommended).
-  /// - [endTime]: End of the time window (UTC is recommended).
   factory GoogleHealthStepsAPIURL.intraday({
     required DateTime startTime,
     required DateTime endTime,
   }) {
+    final filter = buildTimeFilter(
+      fieldPath: '$dataType.interval.start_time',
+      startTime: startTime,
+      endTime: endTime,
+    );
     final uri = Uri.https(
       'health.googleapis.com',
-      '/v4/users/me/dataTypes/steps/dataPoints',
-      {
-        'startTime': startTime.toUtc().toIso8601String(),
-        'endTime': endTime.toUtc().toIso8601String(),
-      },
+      '/v4/users/me/dataTypes/$dataType/dataPoints',
+      {'filter': filter},
     );
-    return GoogleHealthStepsAPIURL._(uri: uri);
+    return GoogleHealthStepsAPIURL._(
+      uri: uri,
+      method: GoogleHealthRequestMethod.get,
+    );
   }
-
-  static String _formatDate(DateTime d) =>
-      '${d.year.toString().padLeft(4, '0')}-'
-      '${d.month.toString().padLeft(2, '0')}-'
-      '${d.day.toString().padLeft(2, '0')}';
 }

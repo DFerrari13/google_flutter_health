@@ -3,25 +3,20 @@ import 'package:google_flutter_health/google_flutter_health.dart';
 
 void main() {
   group('GoogleHealthHrvAPIURL', () {
-    test('dailyRollup() builds dailyRollup URL with provided range', () {
-      final url = GoogleHealthHrvAPIURL.dailyRollup(
+    test('dateRange() builds GET list URL with HRV date filter', () {
+      final url = GoogleHealthHrvAPIURL.dateRange(
         startDate: DateTime(2026, 1, 1),
-        endDate: DateTime(2026, 1, 31),
+        endDate: DateTime(2026, 1, 7),
+      );
+      expect(url.method, GoogleHealthRequestMethod.get);
+      expect(
+        url.uri.path,
+        '/v4/users/me/dataTypes/daily-heart-rate-variability/dataPoints',
       );
       expect(
-        url.uri.toString(),
-        'https://health.googleapis.com/v4/users/me/dataTypes/daily-heart-rate-variability/dataPoints:dailyRollup'
-        '?startTime=2026-01-01&endTime=2026-01-31',
+        url.uri.queryParameters['filter'],
+        contains('daily_heart_rate_variability'),
       );
-    });
-
-    test('dailyRollup() accepts a single-day range', () {
-      final url = GoogleHealthHrvAPIURL.dailyRollup(
-        startDate: DateTime(2026, 1, 15),
-        endDate: DateTime(2026, 1, 15),
-      );
-      expect(url.uri.queryParameters['startTime'], '2026-01-15');
-      expect(url.uri.queryParameters['endTime'], '2026-01-15');
     });
   });
 }

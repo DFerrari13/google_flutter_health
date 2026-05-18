@@ -11,31 +11,15 @@ import 'google_health_data_manager.dart';
 
 /// Fetches the authenticated user's Google Health profile and settings.
 ///
-/// Requires the [GoogleHealthScopes.profileReadonly] scope.
+/// Requires the `googlehealth.profile.readonly` and
+/// `googlehealth.settings.readonly` scopes.
 ///
-/// Makes two API calls internally — one to `users.me.profile` and one to
-/// `users.me.settings` — and merges the responses into a single
-/// [GoogleHealthProfileData] instance. The [url] parameter is accepted for
-/// interface consistency but ignored; use [GoogleHealthProfileAPIURL.profile].
-///
-/// ```dart
-/// final manager = GoogleHealthProfileDataManager(
-///   credentials: credentials,
-///   clientID: 'YOUR_CLIENT_ID',
-///   clientSecret: 'YOUR_CLIENT_SECRET',
-/// );
-/// final result = await manager.fetch(GoogleHealthProfileAPIURL.profile);
-/// final profile = result.data.first;
-/// print('Hello, ${profile.displayName}!');
-/// ```
+/// Makes two API calls internally — one to `users/me/profile` and one to
+/// `users/me/settings` — and merges the responses into a single
+/// [GoogleHealthProfileData] instance. The [url] parameter passed to [fetch]
+/// is accepted for interface consistency but ignored.
 class GoogleHealthProfileDataManager
     extends GoogleHealthDataManager<GoogleHealthProfileData> {
-  /// Creates a profile data manager.
-  ///
-  /// - [credentials]: Current OAuth 2.0 credentials.
-  /// - [clientID]: Client ID for token refresh.
-  /// - [clientSecret]: Client secret for token refresh.
-  /// - [httpClient]: Optional custom HTTP client (injected in tests).
   GoogleHealthProfileDataManager({
     required super.credentials,
     required super.clientID,
@@ -43,68 +27,48 @@ class GoogleHealthProfileDataManager
     super.httpClient,
   });
 
-  /// Fetches the user's profile and settings, merged into one [GoogleHealthProfileData].
-  ///
-  /// The [url] parameter is accepted for interface consistency but is ignored.
-  /// This method always queries [GoogleHealthProfileAPIURL.profile] and
-  /// [GoogleHealthProfileAPIURL.settings] internally.
-  ///
-  /// Returns a record with a single-element list and the (possibly refreshed)
-  /// credentials.
-  ///
-  /// Throws [GoogleHealthTokenExpiredException] if token refresh fails.
-  /// Throws [GoogleHealthRateLimitException] on HTTP 429.
-  /// Throws [GoogleHealthDataTypeException] on other HTTP errors.
+  /// Overrides the base [fetch] because the profile endpoint requires two
+  /// HTTP calls that are merged into a single data object.
   @override
   Future<
       ({
         List<GoogleHealthProfileData> data,
-        GoogleHealthCredentials credentials
-      })> fetch(
-    GoogleHealthAPIURL url,
-  ) async {
-    var creds = credentials;
-    creds = await refreshIfNeeded(creds);
-
+        GoogleHealthCredentials credentials,
+      })> fetch(GoogleHealthAPIURL url) async {
+    final creds = await refreshIfNeeded(credentials);
     final headers = {'Authorization': 'Bearer ${creds.accessToken}'};
 
     final profileResponse = await httpClient.get(
       GoogleHealthProfileAPIURL.profile.uri,
       headers: headers,
     );
-    _checkResponse(profileResponse);
+    checkResponse(profileResponse);
 
     final settingsResponse = await httpClient.get(
       GoogleHealthProfileAPIURL.settings.uri,
       headers: headers,
     );
-    _checkResponse(settingsResponse);
+    checkResponse(settingsResponse);
 
-    final profileJson =
-        jsonDecode(profileResponse.body) as Map<String, dynamic>;
-    final settingsJson =
-        jsonDecode(settingsResponse.body) as Map<String, dynamic>;
-
-    final merged = {...profileJson, ...settingsJson};
-    final data = GoogleHealthProfileData.fromJson(merged);
-
+    final profileJson = _decode(profileResponse);
+    final settingsJson = _decode(settingsResponse);
+    final data = GoogleHealthProfileData.fromMerged(
+      profile: profileJson,
+      settings: settingsJson,
+    );
     return (data: [data], credentials: creds);
   }
 
-  void _checkResponse(http.Response response) {
-    if (response.statusCode == 401) {
-      throw const GoogleHealthTokenExpiredException(
-        'Unauthorized: access token rejected by the API.',
-      );
-    }
-    if (response.statusCode == 429) {
-      throw const GoogleHealthRateLimitException(
-        'Rate limit exceeded.',
-      );
-    }
-    if (response.statusCode != 200) {
-      throw GoogleHealthDataTypeException(
-        'API error: ${response.statusCode}',
+  @override
+  List<GoogleHealthProfileData> parseDataPoints(Map<String, dynamic> json) =>
+      const [];
+
+  Map<String, dynamic> _decode(http.Response response) {
+    try {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      throw GoogleHealthDataException(
+        'Failed to decode profile/settings response: $e',
       );
     }
   }

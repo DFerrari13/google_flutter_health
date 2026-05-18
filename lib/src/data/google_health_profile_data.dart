@@ -1,88 +1,197 @@
+import '_parsing_helpers.dart';
+
 /// The authenticated user's Google Health profile and settings.
 ///
-/// Combines data from the `users.me.profile` and `users.me.settings`
-/// endpoints. All fields are nullable because the API may not have data
-/// for a given user.
+/// Combines fields from the `users/me/profile` and `users/me/settings`
+/// endpoints. The Google Health API only exposes a narrow set of
+/// profile fields (age, membership start date, stride lengths) and a unit-
+/// preference set in settings (distance, weight, temperature, etc.). For
+/// richer demographic data (display name, profile photo) use the Google
+/// account profile from your sign-in library.
 class GoogleHealthProfileData {
-  /// The Google Health user ID.
-  final String? userId;
+  /// Profile resource name (`users/me/profile`).
+  final String? profileName;
 
-  /// The user's full display name.
-  final String? displayName;
+  /// User's age in completed years.
+  final int? age;
 
-  /// The user's given (first) name.
-  final String? givenName;
+  /// Date the user joined Google Health, formatted as an ISO 8601 date
+  /// (`YYYY-MM-DD`).
+  final String? membershipStartDate;
 
-  /// The user's family (last) name.
-  final String? familyName;
+  /// User-configured walking stride length in millimetres.
+  final int? userConfiguredWalkingStrideLengthMm;
 
-  /// The user's date of birth as an ISO 8601 date string (`YYYY-MM-DD`).
-  final String? birthdate;
+  /// User-configured running stride length in millimetres.
+  final int? userConfiguredRunningStrideLengthMm;
 
-  /// The user's height in centimetres.
-  final double? heightCm;
+  /// Automatically-derived walking stride length in millimetres (output only).
+  final int? autoWalkingStrideLengthMm;
 
-  /// The user's weight in kilograms.
-  final double? weightKg;
+  /// Automatically-derived running stride length in millimetres (output only).
+  final int? autoRunningStrideLengthMm;
 
-  /// The user's biological sex.
-  ///
-  /// Typical API values: `"male"`, `"female"`, `"unspecified"`.
-  final String? sex;
+  /// Settings resource name (`users/me/settings`).
+  final String? settingsName;
 
-  /// The user's preferred locale (e.g. `"en-US"`).
-  final String? locale;
+  /// Whether automatic stride-length detection is enabled.
+  final bool? autoStrideEnabled;
 
-  /// The user's configured time zone (e.g. `"America/New_York"`).
-  final String? timezone;
+  /// Distance unit preference: `MILES` or `KILOMETERS`.
+  final String? distanceUnit;
+
+  /// Glucose unit preference: `MG_DL` or `MMOL_L`.
+  final String? glucoseUnit;
+
+  /// Height unit preference: `INCHES` or `CENTIMETERS`.
+  final String? heightUnit;
+
+  /// User locale (e.g. `en-US`).
+  final String? languageLocale;
+
+  /// UTC offset as a duration string (e.g. `-28800s`).
+  final String? utcOffset;
+
+  /// IANA time zone identifier (e.g. `America/New_York`).
+  final String? timeZone;
+
+  /// Preferred stride-length source for walking
+  /// (`USER_CONFIGURED` or `AUTOMATIC`).
+  final String? strideLengthWalkingType;
+
+  /// Preferred stride-length source for running.
+  final String? strideLengthRunningType;
+
+  /// Swim distance unit preference: `METERS` or `YARDS`.
+  final String? swimUnit;
+
+  /// Temperature unit preference: `CELSIUS` or `FAHRENHEIT`.
+  final String? temperatureUnit;
+
+  /// Weight unit preference: `POUNDS`, `STONE`, or `KILOGRAMS`.
+  final String? weightUnit;
+
+  /// Water unit preference: `ML`, `FL_OZ`, or `CUP`.
+  final String? waterUnit;
 
   const GoogleHealthProfileData({
-    this.userId,
-    this.displayName,
-    this.givenName,
-    this.familyName,
-    this.birthdate,
-    this.heightCm,
-    this.weightKg,
-    this.sex,
-    this.locale,
-    this.timezone,
+    this.profileName,
+    this.age,
+    this.membershipStartDate,
+    this.userConfiguredWalkingStrideLengthMm,
+    this.userConfiguredRunningStrideLengthMm,
+    this.autoWalkingStrideLengthMm,
+    this.autoRunningStrideLengthMm,
+    this.settingsName,
+    this.autoStrideEnabled,
+    this.distanceUnit,
+    this.glucoseUnit,
+    this.heightUnit,
+    this.languageLocale,
+    this.utcOffset,
+    this.timeZone,
+    this.strideLengthWalkingType,
+    this.strideLengthRunningType,
+    this.swimUnit,
+    this.temperatureUnit,
+    this.weightUnit,
+    this.waterUnit,
   });
 
-  /// Creates a [GoogleHealthProfileData] from a merged profile + settings JSON map.
-  factory GoogleHealthProfileData.fromJson(Map<String, dynamic> json) {
+  /// Creates a [GoogleHealthProfileData] from a merged profile + settings map.
+  factory GoogleHealthProfileData.fromMerged({
+    required Map<String, dynamic> profile,
+    required Map<String, dynamic> settings,
+  }) {
     return GoogleHealthProfileData(
-      userId: json['userId'] as String?,
-      displayName: json['displayName'] as String?,
-      givenName: json['givenName'] as String?,
-      familyName: json['familyName'] as String?,
-      birthdate: json['birthdate'] as String?,
-      heightCm: (json['heightCm'] as num?)?.toDouble(),
-      weightKg: (json['weightKg'] as num?)?.toDouble(),
-      sex: json['sex'] as String?,
-      locale: json['locale'] as String?,
-      timezone: json['timezone'] as String?,
+      profileName: profile['name'] as String?,
+      age: parseInt64(profile['age']),
+      membershipStartDate: profile['membershipStartDate'] as String?,
+      userConfiguredWalkingStrideLengthMm:
+          parseInt64(profile['userConfiguredWalkingStrideLengthMm']),
+      userConfiguredRunningStrideLengthMm:
+          parseInt64(profile['userConfiguredRunningStrideLengthMm']),
+      autoWalkingStrideLengthMm:
+          parseInt64(profile['autoWalkingStrideLengthMm']),
+      autoRunningStrideLengthMm:
+          parseInt64(profile['autoRunningStrideLengthMm']),
+      settingsName: settings['name'] as String?,
+      autoStrideEnabled: settings['autoStrideEnabled'] as bool?,
+      distanceUnit: settings['distanceUnit'] as String?,
+      glucoseUnit: settings['glucoseUnit'] as String?,
+      heightUnit: settings['heightUnit'] as String?,
+      languageLocale: settings['languageLocale'] as String?,
+      utcOffset: settings['utcOffset'] as String?,
+      timeZone: settings['timeZone'] as String?,
+      strideLengthWalkingType: settings['strideLengthWalkingType'] as String?,
+      strideLengthRunningType: settings['strideLengthRunningType'] as String?,
+      swimUnit: settings['swimUnit'] as String?,
+      temperatureUnit: settings['temperatureUnit'] as String?,
+      weightUnit: settings['weightUnit'] as String?,
+      waterUnit: settings['waterUnit'] as String?,
     );
   }
 
-  /// Serialises this profile to a JSON-compatible map.
+  /// Convenience for restoring a previously-serialised profile.
+  factory GoogleHealthProfileData.fromJson(Map<String, dynamic> json) {
+    return GoogleHealthProfileData(
+      profileName: json['profileName'] as String?,
+      age: parseInt64(json['age']),
+      membershipStartDate: json['membershipStartDate'] as String?,
+      userConfiguredWalkingStrideLengthMm:
+          parseInt64(json['userConfiguredWalkingStrideLengthMm']),
+      userConfiguredRunningStrideLengthMm:
+          parseInt64(json['userConfiguredRunningStrideLengthMm']),
+      autoWalkingStrideLengthMm:
+          parseInt64(json['autoWalkingStrideLengthMm']),
+      autoRunningStrideLengthMm:
+          parseInt64(json['autoRunningStrideLengthMm']),
+      settingsName: json['settingsName'] as String?,
+      autoStrideEnabled: json['autoStrideEnabled'] as bool?,
+      distanceUnit: json['distanceUnit'] as String?,
+      glucoseUnit: json['glucoseUnit'] as String?,
+      heightUnit: json['heightUnit'] as String?,
+      languageLocale: json['languageLocale'] as String?,
+      utcOffset: json['utcOffset'] as String?,
+      timeZone: json['timeZone'] as String?,
+      strideLengthWalkingType: json['strideLengthWalkingType'] as String?,
+      strideLengthRunningType: json['strideLengthRunningType'] as String?,
+      swimUnit: json['swimUnit'] as String?,
+      temperatureUnit: json['temperatureUnit'] as String?,
+      weightUnit: json['weightUnit'] as String?,
+      waterUnit: json['waterUnit'] as String?,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
-        'userId': userId,
-        'displayName': displayName,
-        'givenName': givenName,
-        'familyName': familyName,
-        'birthdate': birthdate,
-        'heightCm': heightCm,
-        'weightKg': weightKg,
-        'sex': sex,
-        'locale': locale,
-        'timezone': timezone,
+        'profileName': profileName,
+        'age': age,
+        'membershipStartDate': membershipStartDate,
+        'userConfiguredWalkingStrideLengthMm':
+            userConfiguredWalkingStrideLengthMm,
+        'userConfiguredRunningStrideLengthMm':
+            userConfiguredRunningStrideLengthMm,
+        'autoWalkingStrideLengthMm': autoWalkingStrideLengthMm,
+        'autoRunningStrideLengthMm': autoRunningStrideLengthMm,
+        'settingsName': settingsName,
+        'autoStrideEnabled': autoStrideEnabled,
+        'distanceUnit': distanceUnit,
+        'glucoseUnit': glucoseUnit,
+        'heightUnit': heightUnit,
+        'languageLocale': languageLocale,
+        'utcOffset': utcOffset,
+        'timeZone': timeZone,
+        'strideLengthWalkingType': strideLengthWalkingType,
+        'strideLengthRunningType': strideLengthRunningType,
+        'swimUnit': swimUnit,
+        'temperatureUnit': temperatureUnit,
+        'weightUnit': weightUnit,
+        'waterUnit': waterUnit,
       };
 
   @override
-  String toString() =>
-      'GoogleHealthProfileData(userId: $userId, displayName: $displayName, '
-      'givenName: $givenName, familyName: $familyName, birthdate: $birthdate, '
-      'heightCm: $heightCm, weightKg: $weightKg, sex: $sex, '
-      'locale: $locale, timezone: $timezone)';
+  String toString() => 'GoogleHealthProfileData('
+      'age: $age, membershipStartDate: $membershipStartDate, '
+      'distanceUnit: $distanceUnit, weightUnit: $weightUnit, '
+      'temperatureUnit: $temperatureUnit, timeZone: $timeZone)';
 }

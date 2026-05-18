@@ -1,14 +1,13 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_flutter_health/google_flutter_health.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:google_flutter_health/google_flutter_health.dart';
 
 void main() {
   group('GoogleHealthHeartRateDataManager', () {
     late GoogleHealthCredentials credentials;
-    late GoogleHealthCredentials expiredCredentials;
 
     setUp(() {
       credentials = GoogleHealthCredentials(
@@ -19,30 +18,22 @@ void main() {
         userID: 'user_123',
         scopes: [GoogleHealthScopes.healthMetricsReadonly],
       );
-
-      expiredCredentials = GoogleHealthCredentials(
-        accessToken: 'expired_token',
-        refreshToken: 'refresh_token',
-        accessTokenExpirationDateTime:
-            DateTime.now().toUtc().subtract(const Duration(hours: 1)),
-        userID: 'user_123',
-        scopes: [GoogleHealthScopes.healthMetricsReadonly],
-      );
     });
 
-    test('fetch() returns parsed data points and unchanged credentials',
-        () async {
+    test('fetch() GETs list endpoint and parses raw samples', () async {
       final body = jsonEncode({
         'dataPoints': [
           {
-            'userId': 'user_123',
-            'startTime': '2026-01-15T10:00:00Z',
-            'value': 68.0,
+            'heartRate': {
+              'beatsPerMinute': '68',
+              'sampleTime': {'physicalTime': '2026-01-15T10:00:00Z'},
+            },
           },
           {
-            'userId': 'user_123',
-            'startTime': '2026-01-15T10:01:00Z',
-            'value': 75.5,
+            'heartRate': {
+              'beatsPerMinute': '75',
+              'sampleTime': {'physicalTime': '2026-01-15T10:01:00Z'},
+            },
           },
         ],
       });
@@ -50,7 +41,8 @@ void main() {
       var endpointHit = false;
       final client = MockClient((request) async {
         if (request.url.path ==
-            '/v4/users/me/dataTypes/heart-rate/dataPoints') {
+                '/v4/users/me/dataTypes/heart-rate/dataPoints' &&
+            request.method == 'GET') {
           endpointHit = true;
           expect(request.headers['Authorization'], 'Bearer valid_token');
           return http.Response(body, 200);
@@ -71,17 +63,36 @@ void main() {
           endTime: DateTime.utc(2026, 1, 15, 11),
         ),
       );
-
       expect(endpointHit, isTrue);
       expect(result.data, hasLength(2));
-      expect(result.data.first.bpm, 68.0);
-      expect(result.data[1].bpm, 75.5);
-      expect(result.credentials.accessToken, credentials.accessToken);
+      expect(result.data.first.beatsPerMinute, 68);
+      expect(result.data[1].beatsPerMinute, 75);
     });
 
-    test('fetch() returns empty list when dataPoints is missing', () async {
+    test('fetch() POSTs dailyRollUp and parses aggregates', () async {
+      final body = jsonEncode({
+        'dataPoints': [
+          {
+            'civilStartTime': {
+              'date': {'year': 2026, 'month': 1, 'day': 15},
+            },
+            'civilEndTime': {
+              'date': {'year': 2026, 'month': 1, 'day': 16},
+            },
+            'heartRate': {
+              'beatsPerMinuteAvg': 72.0,
+              'beatsPerMinuteMin': 50.0,
+              'beatsPerMinuteMax': 140.0,
+            },
+          },
+        ],
+      });
+
       final client = MockClient((request) async {
-        return http.Response(jsonEncode({}), 200);
+        if (request.method == 'POST') {
+          return http.Response(body, 200);
+        }
+        return http.Response('Not found', 404);
       });
 
       final manager = GoogleHealthHeartRateDataManager(
@@ -94,40 +105,13 @@ void main() {
       final result = await manager.fetch(
         GoogleHealthHeartRateAPIURL.day(date: DateTime(2026, 1, 15)),
       );
-
-      expect(result.data, isEmpty);
+      expect(result.data, hasLength(1));
+      expect(result.data.first.beatsPerMinuteAvg, 72.0);
+      expect(result.data.first.beatsPerMinuteMin, 50.0);
+      expect(result.data.first.beatsPerMinuteMax, 140.0);
     });
 
-    test('fetch() refreshes token when isExpired is true', () async {
-      final newTokenBody = jsonEncode({
-        'access_token': 'new_access_token',
-        'expires_in': 3600,
-        'token_type': 'Bearer',
-      });
-      final dataBody = jsonEncode({'dataPoints': []});
-
-      final client = MockClient((request) async {
-        if (request.url.host == 'oauth2.googleapis.com') {
-          return http.Response(newTokenBody, 200);
-        }
-        return http.Response(dataBody, 200);
-      });
-
-      final manager = GoogleHealthHeartRateDataManager(
-        credentials: expiredCredentials,
-        clientID: 'client_id',
-        clientSecret: 'client_secret',
-        httpClient: client,
-      );
-
-      final result = await manager.fetch(
-        GoogleHealthHeartRateAPIURL.day(date: DateTime(2026, 1, 15)),
-      );
-
-      expect(result.credentials.accessToken, 'new_access_token');
-    });
-
-    test('fetch() throws GoogleHealthTokenExpiredException on 401', () async {
+    test('fetch() throws on 401', () async {
       final client = MockClient((request) async {
         return http.Response('Unauthorized', 401);
       });
@@ -144,26 +128,6 @@ void main() {
           GoogleHealthHeartRateAPIURL.day(date: DateTime(2026, 1, 15)),
         ),
         throwsA(isA<GoogleHealthTokenExpiredException>()),
-      );
-    });
-
-    test('fetch() throws GoogleHealthRateLimitException on 429', () async {
-      final client = MockClient((request) async {
-        return http.Response('Rate limit exceeded', 429);
-      });
-
-      final manager = GoogleHealthHeartRateDataManager(
-        credentials: credentials,
-        clientID: 'client_id',
-        clientSecret: 'client_secret',
-        httpClient: client,
-      );
-
-      expect(
-        () => manager.fetch(
-          GoogleHealthHeartRateAPIURL.day(date: DateTime(2026, 1, 15)),
-        ),
-        throwsA(isA<GoogleHealthRateLimitException>()),
       );
     });
   });

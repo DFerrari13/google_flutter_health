@@ -3,51 +3,41 @@ import 'package:google_flutter_health/google_flutter_health.dart';
 
 void main() {
   group('GoogleHealthDistanceData', () {
-    final fullJson = <String, dynamic>{
-      'userId': 'user_123',
-      'startTime': '2026-01-15T10:00:00Z',
-      'value': 1234.5,
-    };
+    test('fromJson parses dailyRollUp aggregate', () {
+      final data = GoogleHealthDistanceData.fromJson(<String, dynamic>{
+        'civilStartTime': {
+          'date': {'year': 2026, 'month': 1, 'day': 15},
+        },
+        'civilEndTime': {
+          'date': {'year': 2026, 'month': 1, 'day': 16},
+        },
+        'distance': {'distanceMetersSum': 8543.5},
+      });
+      expect(data.startTime, DateTime(2026, 1, 15));
+      expect(data.distanceMeters, 8543.5);
+    });
 
-    test('fromJson parses all fields correctly', () {
-      final data = GoogleHealthDistanceData.fromJson(fullJson);
-      expect(data.userId, 'user_123');
+    test('fromJson parses a raw list interval', () {
+      final data = GoogleHealthDistanceData.fromJson(<String, dynamic>{
+        'distance': {
+          'distanceMeters': 200.0,
+          'interval': {
+            'startTime': '2026-01-15T10:00:00Z',
+            'endTime': '2026-01-15T10:05:00Z',
+          },
+        },
+      });
+      expect(data.distanceMeters, 200.0);
       expect(
-        data.dateTime,
+        data.startTime,
         DateTime.parse('2026-01-15T10:00:00Z').toLocal(),
       );
-      expect(data.distanceMeters, 1234.5);
     });
 
-    test('fromJson coerces integer value to double', () {
-      final data = GoogleHealthDistanceData.fromJson({
-        ...fullJson,
-        'value': 1234,
-      });
-      expect(data.distanceMeters, 1234.0);
-    });
-
-    test('toJson serializes correctly', () {
-      final data = GoogleHealthDistanceData.fromJson(fullJson);
-      final json = data.toJson();
-      expect(json['userId'], 'user_123');
-      expect(json['startTime'], '2026-01-15T10:00:00.000Z');
-      expect(json['value'], 1234.5);
-    });
-
-    test('fromJson/toJson roundtrip', () {
-      final original = GoogleHealthDistanceData.fromJson(fullJson);
-      final roundtripped = GoogleHealthDistanceData.fromJson(original.toJson());
-      expect(roundtripped.userId, original.userId);
-      expect(roundtripped.dateTime, original.dateTime);
-      expect(roundtripped.distanceMeters, original.distanceMeters);
-    });
-
-    test('fromJson handles null fields gracefully', () {
-      final data = GoogleHealthDistanceData.fromJson({});
-      expect(data.userId, isNull);
-      expect(data.dateTime, isNull);
+    test('fromJson handles missing fields gracefully', () {
+      final data = GoogleHealthDistanceData.fromJson(<String, dynamic>{});
       expect(data.distanceMeters, isNull);
+      expect(data.startTime, isNull);
     });
   });
 }

@@ -1,83 +1,83 @@
-/// A single Active Zone Minutes (AZM) data point from the Google Health API.
+import '_parsing_helpers.dart';
+
+/// A single Active Zone Minutes data point from the Google Health API.
 ///
-/// When using the `dailyRollup` endpoint, each instance represents the total
-/// minutes spent in each heart rate zone for one calendar day. When using the
-/// `dataPoints` list endpoint, each instance represents an individual AZM
-/// event.
+/// AZM is split into three intensity zones (fat-burn, cardio, peak). For
+/// `dailyRollUp` responses each field holds the daily aggregate
+/// (`...MinutesSum`). For raw `list` responses the fields hold the interval
+/// values (`...Minutes`).
 class GoogleHealthActiveZoneMinutesData {
-  /// The Google Health user ID associated with this data point.
-  final String? userId;
-
-  /// The timestamp of this data point in local time.
-  final DateTime? dateTime;
-
-  /// Minutes spent in the fat-burn heart rate zone.
+  final String? name;
+  final DateTime? startTime;
+  final DateTime? endTime;
   final double? fatBurnMinutes;
-
-  /// Minutes spent in the cardio heart rate zone.
   final double? cardioMinutes;
-
-  /// Minutes spent in the peak heart rate zone.
   final double? peakMinutes;
-
-  /// Total active zone minutes across all zones.
   final double? totalMinutes;
 
   const GoogleHealthActiveZoneMinutesData({
-    this.userId,
-    this.dateTime,
+    this.name,
+    this.startTime,
+    this.endTime,
     this.fatBurnMinutes,
     this.cardioMinutes,
     this.peakMinutes,
     this.totalMinutes,
   });
 
-  /// Creates a [GoogleHealthActiveZoneMinutesData] from a raw API JSON map.
-  ///
-  /// The Google Health API returns AZM components under a nested `value`
-  /// object with keys `fatBurnMinutes`, `cardioMinutes`, `peakMinutes`, and
-  /// `totalMinutes`. Top-level keys are also accepted for convenience.
   factory GoogleHealthActiveZoneMinutesData.fromJson(
-    Map<String, dynamic> json,
-  ) {
-    final value = json['value'];
-    final inner =
-        value is Map<String, dynamic> ? value : const <String, dynamic>{};
+      Map<String, dynamic> json) {
+    final field = json['activeZoneMinutes'];
+    final a = field is Map<String, dynamic> ? field : const <String, dynamic>{};
 
-    double? readDouble(String key) {
-      final v = inner[key] ?? json[key];
-      return (v as num?)?.toDouble();
+    double? pick(List<String> keys) {
+      for (final key in keys) {
+        final v = parseNumber(a[key]);
+        if (v != null) return v;
+      }
+      return null;
     }
 
+    if (json.containsKey('civilStartTime')) {
+      return GoogleHealthActiveZoneMinutesData(
+        name: json['name'] as String?,
+        startTime: parseCivilDateTime(json['civilStartTime']),
+        endTime: parseCivilDateTime(json['civilEndTime']),
+        fatBurnMinutes: pick(['fatBurnMinutesSum', 'fatBurnMinutes']),
+        cardioMinutes: pick(['cardioMinutesSum', 'cardioMinutes']),
+        peakMinutes: pick(['peakMinutesSum', 'peakMinutes']),
+        totalMinutes: pick(['totalMinutesSum', 'totalMinutes']),
+      );
+    }
+
+    final intervalField = a['interval'];
+    final interval = intervalField is Map<String, dynamic>
+        ? intervalField
+        : const <String, dynamic>{};
     return GoogleHealthActiveZoneMinutesData(
-      userId: json['userId'] as String?,
-      dateTime: json['startTime'] != null
-          ? DateTime.parse(json['startTime'] as String).toLocal()
-          : null,
-      fatBurnMinutes: readDouble('fatBurnMinutes'),
-      cardioMinutes: readDouble('cardioMinutes'),
-      peakMinutes: readDouble('peakMinutes'),
-      totalMinutes: readDouble('totalMinutes'),
+      name: json['name'] as String?,
+      startTime: parsePhysicalTime(interval['startTime']),
+      endTime: parsePhysicalTime(interval['endTime']),
+      fatBurnMinutes: pick(['fatBurnMinutes']),
+      cardioMinutes: pick(['cardioMinutes']),
+      peakMinutes: pick(['peakMinutes']),
+      totalMinutes: pick(['totalMinutes']),
     );
   }
 
-  /// Serialises this data point to a JSON-compatible map.
-  ///
-  /// AZM components are nested under `value` to match the API response shape.
   Map<String, dynamic> toJson() => {
-        'userId': userId,
-        'startTime': dateTime?.toUtc().toIso8601String(),
-        'value': {
-          'fatBurnMinutes': fatBurnMinutes,
-          'cardioMinutes': cardioMinutes,
-          'peakMinutes': peakMinutes,
-          'totalMinutes': totalMinutes,
-        },
+        'name': name,
+        'startTime': startTime?.toUtc().toIso8601String(),
+        'endTime': endTime?.toUtc().toIso8601String(),
+        'fatBurnMinutes': fatBurnMinutes,
+        'cardioMinutes': cardioMinutes,
+        'peakMinutes': peakMinutes,
+        'totalMinutes': totalMinutes,
       };
 
   @override
-  String toString() => 'GoogleHealthActiveZoneMinutesData('
-      'userId: $userId, dateTime: $dateTime, '
+  String toString() => 'GoogleHealthActiveZoneMinutesData(name: $name, '
+      'startTime: $startTime, endTime: $endTime, '
       'fatBurnMinutes: $fatBurnMinutes, cardioMinutes: $cardioMinutes, '
       'peakMinutes: $peakMinutes, totalMinutes: $totalMinutes)';
 }

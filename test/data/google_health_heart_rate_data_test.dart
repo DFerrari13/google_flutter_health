@@ -3,52 +3,63 @@ import 'package:google_flutter_health/google_flutter_health.dart';
 
 void main() {
   group('GoogleHealthHeartRateData', () {
-    final fullJson = <String, dynamic>{
-      'userId': 'user_123',
-      'startTime': '2026-01-15T10:00:00Z',
-      'value': 72.5,
-    };
+    test('fromJson parses a dailyRollUp data point', () {
+      final data = GoogleHealthHeartRateData.fromJson(<String, dynamic>{
+        'civilStartTime': {
+          'date': {'year': 2026, 'month': 1, 'day': 15},
+        },
+        'civilEndTime': {
+          'date': {'year': 2026, 'month': 1, 'day': 16},
+        },
+        'heartRate': {
+          'beatsPerMinuteAvg': 72.5,
+          'beatsPerMinuteMin': 55.0,
+          'beatsPerMinuteMax': 145.0,
+        },
+      });
+      expect(data.civilStartTime, DateTime(2026, 1, 15));
+      expect(data.civilEndTime, DateTime(2026, 1, 16));
+      expect(data.beatsPerMinuteAvg, 72.5);
+      expect(data.beatsPerMinuteMin, 55.0);
+      expect(data.beatsPerMinuteMax, 145.0);
+      expect(data.beatsPerMinute, isNull);
+    });
 
-    test('fromJson parses all fields correctly', () {
-      final data = GoogleHealthHeartRateData.fromJson(fullJson);
-      expect(data.userId, 'user_123');
+    test('fromJson parses a raw list sample', () {
+      final data = GoogleHealthHeartRateData.fromJson(<String, dynamic>{
+        'name': 'users/me/dataTypes/heart-rate/dataPoints/abc',
+        'heartRate': {
+          'beatsPerMinute': '75',
+          'sampleTime': {'physicalTime': '2026-01-15T10:00:00Z'},
+        },
+      });
+      expect(data.name, 'users/me/dataTypes/heart-rate/dataPoints/abc');
       expect(
-        data.dateTime,
+        data.sampleTime,
         DateTime.parse('2026-01-15T10:00:00Z').toLocal(),
       );
-      expect(data.bpm, 72.5);
+      expect(data.beatsPerMinute, 75);
+      expect(data.beatsPerMinuteAvg, isNull);
     });
 
-    test('fromJson converts integer value to double', () {
-      final data = GoogleHealthHeartRateData.fromJson({
-        ...fullJson,
-        'value': 72,
-      });
-      expect(data.bpm, 72.0);
+    test('fromJson handles missing fields gracefully', () {
+      final data = GoogleHealthHeartRateData.fromJson(<String, dynamic>{});
+      expect(data.beatsPerMinute, isNull);
+      expect(data.beatsPerMinuteAvg, isNull);
+      expect(data.sampleTime, isNull);
+      expect(data.civilStartTime, isNull);
     });
 
-    test('toJson serializes correctly', () {
-      final data = GoogleHealthHeartRateData.fromJson(fullJson);
+    test('toJson exposes all fields', () {
+      final data = GoogleHealthHeartRateData(
+        name: 'users/me/dataTypes/heart-rate/dataPoints/x',
+        sampleTime: DateTime.utc(2026, 1, 15, 10),
+        beatsPerMinute: 75,
+      );
       final json = data.toJson();
-      expect(json['userId'], 'user_123');
-      expect(json['startTime'], '2026-01-15T10:00:00.000Z');
-      expect(json['value'], 72.5);
-    });
-
-    test('fromJson/toJson roundtrip', () {
-      final original = GoogleHealthHeartRateData.fromJson(fullJson);
-      final roundtripped =
-          GoogleHealthHeartRateData.fromJson(original.toJson());
-      expect(roundtripped.userId, original.userId);
-      expect(roundtripped.dateTime, original.dateTime);
-      expect(roundtripped.bpm, original.bpm);
-    });
-
-    test('fromJson handles null fields gracefully', () {
-      final data = GoogleHealthHeartRateData.fromJson({});
-      expect(data.userId, isNull);
-      expect(data.dateTime, isNull);
-      expect(data.bpm, isNull);
+      expect(json['name'], 'users/me/dataTypes/heart-rate/dataPoints/x');
+      expect(json['sampleTime'], '2026-01-15T10:00:00.000Z');
+      expect(json['beatsPerMinute'], 75);
     });
   });
 }

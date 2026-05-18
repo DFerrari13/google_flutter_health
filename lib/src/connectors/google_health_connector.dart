@@ -193,23 +193,25 @@ class GoogleHealthConnector {
 
   /// Retrieves the authenticated user's Google Health user ID.
   ///
-  /// Calls the `users.me:getIdentity` endpoint. Call this once after
-  /// [authorize] and store the returned ID in your credentials if needed
-  /// for user-specific operations.
+  /// Calls the `users.identity` endpoint
+  /// (`GET /v4/users/me/identity`). Call this once after [authorize] and
+  /// store the returned ID in your credentials if needed for user-specific
+  /// operations.
   ///
-  /// Returns the user ID string, or `null` if the request fails.
+  /// Returns the `healthUserId` string from the response, or `null` if the
+  /// request fails.
   ///
   /// - [credentials]: Valid credentials with a non-expired access token.
   static Future<String?> getUserId({
     required GoogleHealthCredentials credentials,
   }) async {
     final response = await http.get(
-      Uri.https('health.googleapis.com', '/v4/users/me:getIdentity'),
+      Uri.https('health.googleapis.com', '/v4/users/me/identity'),
       headers: {'Authorization': 'Bearer ${credentials.accessToken}'},
     );
     if (response.statusCode != 200) return null;
     final json = jsonDecode(response.body) as Map<String, dynamic>;
-    return json['userId'] as String?;
+    return json['healthUserId'] as String?;
   }
 
   /// Revokes the access token and refresh token for the given credentials.

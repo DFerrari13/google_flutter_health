@@ -1,11 +1,12 @@
+import '_parsing_helpers.dart';
+
 /// A single exercise session from the Google Health API.
 ///
 /// Each instance represents one logged exercise event with start/end
 /// timestamps, activity type, and the summary metrics available for that
 /// session.
 class GoogleHealthExerciseData {
-  /// The Google Health user ID associated with this session.
-  final String? userId;
+  final String? name;
 
   /// Session start time in local time.
   final DateTime? startTime;
@@ -13,11 +14,11 @@ class GoogleHealthExerciseData {
   /// Session end time in local time.
   final DateTime? endTime;
 
-  /// Activity type identifier (e.g. `running`, `cycling`).
-  final String? activityType;
+  /// Exercise type enum value (e.g. `RUNNING`, `WALKING`, `BIKING`).
+  final String? exerciseType;
 
-  /// Session duration in milliseconds.
-  final double? durationMillis;
+  /// Human-readable display name supplied by the recording device.
+  final String? displayName;
 
   /// Energy expenditure for the session, in kilocalories.
   final double? calories;
@@ -26,73 +27,63 @@ class GoogleHealthExerciseData {
   final double? distanceMeters;
 
   /// Step count for the session.
-  final double? steps;
+  final int? steps;
 
   const GoogleHealthExerciseData({
-    this.userId,
+    this.name,
     this.startTime,
     this.endTime,
-    this.activityType,
-    this.durationMillis,
+    this.exerciseType,
+    this.displayName,
     this.calories,
     this.distanceMeters,
     this.steps,
   });
 
-  /// Creates a [GoogleHealthExerciseData] from a raw API JSON map.
-  ///
-  /// The Google Health API returns exercise metrics under a nested `value`
-  /// object with keys `activityType`, `durationMillis`, `calories`,
-  /// `distanceMeters`, and `steps`. Top-level keys are also accepted for
-  /// convenience.
+  /// Session duration computed from [startTime] and [endTime].
+  Duration? get duration => (startTime != null && endTime != null)
+      ? endTime!.difference(startTime!)
+      : null;
+
   factory GoogleHealthExerciseData.fromJson(Map<String, dynamic> json) {
-    final value = json['value'];
-    final inner =
-        value is Map<String, dynamic> ? value : const <String, dynamic>{};
-
-    double? readDouble(String key) {
-      final v = inner[key] ?? json[key];
-      return (v as num?)?.toDouble();
-    }
-
-    String? readString(String key) {
-      final v = inner[key] ?? json[key];
-      return v as String?;
-    }
+    final exField = json['exercise'];
+    final ex =
+        exField is Map<String, dynamic> ? exField : const <String, dynamic>{};
+    final interval = ex['interval'];
+    final i = interval is Map<String, dynamic>
+        ? interval
+        : const <String, dynamic>{};
+    final summary = ex['metricsSummary'];
+    final s =
+        summary is Map<String, dynamic> ? summary : const <String, dynamic>{};
 
     return GoogleHealthExerciseData(
-      userId: json['userId'] as String?,
-      startTime: json['startTime'] != null
-          ? DateTime.parse(json['startTime'] as String).toLocal()
-          : null,
-      endTime: json['endTime'] != null
-          ? DateTime.parse(json['endTime'] as String).toLocal()
-          : null,
-      activityType: readString('activityType'),
-      durationMillis: readDouble('durationMillis'),
-      calories: readDouble('calories'),
-      distanceMeters: readDouble('distanceMeters'),
-      steps: readDouble('steps'),
+      name: json['name'] as String?,
+      startTime: parsePhysicalTime(i['startTime']),
+      endTime: parsePhysicalTime(i['endTime']),
+      exerciseType: ex['exerciseType'] as String?,
+      displayName: ex['displayName'] as String?,
+      calories: parseNumber(s['energyKilocalories'] ?? s['calories']),
+      distanceMeters: parseNumber(s['distanceMeters'] ?? s['meters']),
+      steps: parseInt64(s['steps']),
     );
   }
 
-  /// Serialises this data point to a JSON-compatible map.
   Map<String, dynamic> toJson() => {
-        'userId': userId,
+        'name': name,
         'startTime': startTime?.toUtc().toIso8601String(),
         'endTime': endTime?.toUtc().toIso8601String(),
-        'value': {
-          'activityType': activityType,
-          'durationMillis': durationMillis,
-          'calories': calories,
-          'distanceMeters': distanceMeters,
-          'steps': steps,
-        },
+        'exerciseType': exerciseType,
+        'displayName': displayName,
+        'calories': calories,
+        'distanceMeters': distanceMeters,
+        'steps': steps,
       };
 
   @override
-  String toString() => 'GoogleHealthExerciseData('
-      'userId: $userId, startTime: $startTime, endTime: $endTime, '
-      'activityType: $activityType, durationMillis: $durationMillis, '
-      'calories: $calories, distanceMeters: $distanceMeters, steps: $steps)';
+  String toString() => 'GoogleHealthExerciseData(name: $name, '
+      'startTime: $startTime, endTime: $endTime, '
+      'exerciseType: $exerciseType, displayName: $displayName, '
+      'calories: $calories, distanceMeters: $distanceMeters, '
+      'steps: $steps)';
 }

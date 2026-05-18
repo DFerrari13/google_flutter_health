@@ -1,55 +1,60 @@
 import 'google_health_api_url.dart';
+import '_request_helpers.dart';
 
-/// URL builder for the Google Health exercise data type.
+/// URL builder for the Google Health `exercise` data type.
 ///
-/// Exercise events are logged sporadically — only range queries are exposed.
+/// Exercise is a Session record type; only `list` is supported.
 class GoogleHealthExerciseAPIURL extends GoogleHealthAPIURL {
-  GoogleHealthExerciseAPIURL._({required super.uri});
+  const GoogleHealthExerciseAPIURL._({required super.uri})
+      : super(method: GoogleHealthRequestMethod.get);
 
-  /// Builds a URL for exercise sessions in a date range using `dataPoints`.
-  ///
-  /// - [startDate]: First day of the range (inclusive). Time components are ignored.
-  /// - [endDate]: Last day of the range (inclusive). Time components are ignored.
+  /// The data-type identifier used by the Google Health API.
+  static const String dataType = 'exercise';
+
+  /// Builds a list request for sessions that started during a single day.
+  factory GoogleHealthExerciseAPIURL.day({required DateTime date}) {
+    final start = DateTime(date.year, date.month, date.day);
+    return GoogleHealthExerciseAPIURL._build(
+      startTime: start,
+      endTime: start.add(const Duration(days: 1)),
+    );
+  }
+
+  /// Builds a list request for sessions that started in the given date range.
   factory GoogleHealthExerciseAPIURL.dateRange({
     required DateTime startDate,
     required DateTime endDate,
   }) {
-    final start = DateTime.utc(
-      startDate.year,
-      startDate.month,
-      startDate.day,
-    );
-    final end = DateTime.utc(
-      endDate.year,
-      endDate.month,
-      endDate.day,
-    ).add(const Duration(days: 1));
-    final uri = Uri.https(
-      'health.googleapis.com',
-      '/v4/users/me/dataTypes/exercise/dataPoints',
-      {
-        'startTime': start.toIso8601String(),
-        'endTime': end.toIso8601String(),
-      },
-    );
-    return GoogleHealthExerciseAPIURL._(uri: uri);
+    final start = DateTime(startDate.year, startDate.month, startDate.day);
+    final end = DateTime(endDate.year, endDate.month, endDate.day)
+        .add(const Duration(days: 1));
+    return GoogleHealthExerciseAPIURL._build(startTime: start, endTime: end);
   }
 
-  /// Builds a URL for intraday exercise events using `dataPoints`.
-  ///
-  /// - [startTime]: Start of the time window (UTC is recommended).
-  /// - [endTime]: End of the time window (UTC is recommended).
+  /// Builds a list request for sessions that started in the given time window.
   factory GoogleHealthExerciseAPIURL.intraday({
     required DateTime startTime,
     required DateTime endTime,
   }) {
+    return GoogleHealthExerciseAPIURL._build(
+      startTime: startTime,
+      endTime: endTime,
+    );
+  }
+
+  static GoogleHealthExerciseAPIURL _build({
+    required DateTime startTime,
+    required DateTime endTime,
+  }) {
+    final filter = buildTimeFilter(
+      fieldPath: 'exercise.interval.start_time',
+      startTime: startTime,
+      endTime: endTime,
+    );
     final uri = Uri.https(
       'health.googleapis.com',
-      '/v4/users/me/dataTypes/exercise/dataPoints',
-      {
-        'startTime': startTime.toUtc().toIso8601String(),
-        'endTime': endTime.toUtc().toIso8601String(),
-      },
+      '/v4/users/me/dataTypes/$dataType/dataPoints',
+      {'filter': filter},
     );
     return GoogleHealthExerciseAPIURL._(uri: uri);
   }

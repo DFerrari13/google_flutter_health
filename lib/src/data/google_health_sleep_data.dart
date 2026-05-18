@@ -1,62 +1,112 @@
-/// A single sleep stage segment from the Google Health API.
-///
-/// A full night's sleep consists of multiple overlapping segments, each
-/// representing a period in a particular sleep stage (light, deep, REM, awake).
-/// Use [duration] to calculate how long the user spent in each stage.
-class GoogleHealthSleepData {
-  /// The Google Health user ID associated with this segment.
-  final String? userId;
+import '_parsing_helpers.dart';
 
-  /// The start time of this sleep segment in local time.
+/// A sleep segment from the Google Health API.
+///
+/// A sleep session may contain multiple stage segments (LIGHT, DEEP, REM,
+/// AWAKE). When the manager flattens a session, each stage becomes a separate
+/// [GoogleHealthSleepData] instance. If the session has no stage breakdown
+/// (`type: CLASSIC`), a single instance representing the whole session is
+/// returned.
+class GoogleHealthSleepData {
+  /// Resource name of the parent sleep session (only set on `list` responses).
+  final String? name;
+
+  /// Start of this segment in local time.
   final DateTime? startTime;
 
-  /// The end time of this sleep segment in local time.
+  /// End of this segment in local time.
   final DateTime? endTime;
 
-  /// The sleep stage for this segment.
+  /// Sleep stage for this segment.
   ///
-  /// Typical values returned by the API: `"light"`, `"deep"`, `"rem"`, `"awake"`.
-  /// May be `null` if the API does not provide stage information.
-  final String? sleepStage;
+  /// Typical API values: `"AWAKE"`, `"LIGHT"`, `"DEEP"`, `"REM"`, `"ASLEEP"`,
+  /// `"RESTLESS"`. May be `null` for sessions without a stage breakdown.
+  final String? stage;
+
+  /// Sleep session type (`"CLASSIC"` or `"STAGES"`), if known.
+  final String? sessionType;
 
   const GoogleHealthSleepData({
-    this.userId,
+    this.name,
     this.startTime,
     this.endTime,
-    this.sleepStage,
+    this.stage,
+    this.sessionType,
   });
 
-  /// Creates a [GoogleHealthSleepData] from a raw API JSON map.
-  factory GoogleHealthSleepData.fromJson(Map<String, dynamic> json) {
-    return GoogleHealthSleepData(
-      userId: json['userId'] as String?,
-      startTime: json['startTime'] != null
-          ? DateTime.parse(json['startTime'] as String).toLocal()
-          : null,
-      endTime: json['endTime'] != null
-          ? DateTime.parse(json['endTime'] as String).toLocal()
-          : null,
-      sleepStage: json['sleepStage'] as String?,
-    );
-  }
-
-  /// Serialises this segment to a JSON-compatible map.
-  Map<String, dynamic> toJson() => {
-        'userId': userId,
-        'startTime': startTime?.toUtc().toIso8601String(),
-        'endTime': endTime?.toUtc().toIso8601String(),
-        'sleepStage': sleepStage,
-      };
-
-  /// The duration of this sleep segment.
-  ///
-  /// Returns `null` if either [startTime] or [endTime] is unavailable.
+  /// Duration of this segment.
   Duration? get duration => (startTime != null && endTime != null)
       ? endTime!.difference(startTime!)
       : null;
 
+  /// Creates a list of [GoogleHealthSleepData] from a single API data point.
+  ///
+  /// If the session has `stages`, returns one entry per stage. Otherwise
+  /// returns a single entry covering the whole session.
+  static List<GoogleHealthSleepData> listFromJson(Map<String, dynamic> json) {
+    final sleepField = json['sleep'];
+    final sleep = sleepField is Map<String, dynamic>
+        ? sleepField
+        : const <String, dynamic>{};
+    final name = json['name'] as String?;
+    final sessionType = sleep['type'] as String?;
+    final intervalField = sleep['interval'];
+    final interval = intervalField is Map<String, dynamic>
+        ? intervalField
+        : const <String, dynamic>{};
+    final sessionStart = parsePhysicalTime(interval['startTime']);
+    final sessionEnd = parsePhysicalTime(interval['endTime']);
+
+    final stagesField = sleep['stages'];
+    final stages = stagesField is List ? stagesField : const [];
+    if (stages.isEmpty) {
+      return [
+        GoogleHealthSleepData(
+          name: name,
+          startTime: sessionStart,
+          endTime: sessionEnd,
+          sessionType: sessionType,
+        ),
+      ];
+    }
+    return stages.whereType<Map<String, dynamic>>().map((stage) {
+      final stageInterval = stage['interval'];
+      final si = stageInterval is Map<String, dynamic>
+          ? stageInterval
+          : const <String, dynamic>{};
+      return GoogleHealthSleepData(
+        name: name,
+        startTime: parsePhysicalTime(si['startTime']),
+        endTime: parsePhysicalTime(si['endTime']),
+        stage: stage['type'] as String?,
+        sessionType: sessionType,
+      );
+    }).toList(growable: false);
+  }
+
+  /// Creates a [GoogleHealthSleepData] from a single-segment JSON map.
+  ///
+  /// Used when the caller has already flattened a session.
+  factory GoogleHealthSleepData.fromJson(Map<String, dynamic> json) {
+    return GoogleHealthSleepData(
+      name: json['name'] as String?,
+      startTime: parsePhysicalTime(json['startTime']),
+      endTime: parsePhysicalTime(json['endTime']),
+      stage: json['stage'] as String?,
+      sessionType: json['sessionType'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'startTime': startTime?.toUtc().toIso8601String(),
+        'endTime': endTime?.toUtc().toIso8601String(),
+        'stage': stage,
+        'sessionType': sessionType,
+      };
+
   @override
-  String toString() =>
-      'GoogleHealthSleepData(userId: $userId, startTime: $startTime, '
-      'endTime: $endTime, sleepStage: $sleepStage)';
+  String toString() => 'GoogleHealthSleepData(name: $name, '
+      'startTime: $startTime, endTime: $endTime, stage: $stage, '
+      'sessionType: $sessionType)';
 }

@@ -1,76 +1,67 @@
 import 'google_health_api_url.dart';
+import '_request_helpers.dart';
 
-/// URL builder for the Google Health total-calories data type.
-///
-/// Use the factory constructors to build the appropriate URL, then pass the
-/// instance to [GoogleHealthCaloriesDataManager.fetch].
-///
-/// ```dart
-/// // Today's total energy expenditure
-/// final url = GoogleHealthCaloriesAPIURL.day(date: DateTime.now());
-///
-/// // Calories over a date range
-/// final url = GoogleHealthCaloriesAPIURL.dateRange(
-///   startDate: DateTime(2024, 1, 1),
-///   endDate: DateTime(2024, 1, 31),
-/// );
-/// ```
+/// URL builder for the Google Health `total-calories` data type.
 class GoogleHealthCaloriesAPIURL extends GoogleHealthAPIURL {
-  GoogleHealthCaloriesAPIURL._({required super.uri});
+  const GoogleHealthCaloriesAPIURL._({
+    required super.uri,
+    required super.method,
+    super.body,
+  });
 
-  /// Builds a URL for a single day's calories using the `dailyRollup` endpoint.
-  ///
-  /// - [date]: The calendar day to query. Time components are ignored.
+  /// The data-type identifier used by the Google Health API.
+  static const String dataType = 'total-calories';
+
+  /// JSON field key under each data point that holds calorie values.
+  static const String _fieldKey = 'totalCalories';
+
+  /// Builds a request for a single calendar day using `dailyRollUp`.
   factory GoogleHealthCaloriesAPIURL.day({required DateTime date}) {
-    final uri = Uri.https(
-      'health.googleapis.com',
-      '/v4/users/me/dataTypes/total-calories/dataPoints:dailyRollup',
-      {'startTime': _formatDate(date), 'endTime': _formatDate(date)},
+    return GoogleHealthCaloriesAPIURL.dateRange(
+      startDate: date,
+      endDate: date,
     );
-    return GoogleHealthCaloriesAPIURL._(uri: uri);
   }
 
-  /// Builds a URL for a date range using the `dailyRollup` endpoint.
-  ///
-  /// Returns one data point per day in the range.
-  ///
-  /// - [startDate]: First day of the range (inclusive). Time components are ignored.
-  /// - [endDate]: Last day of the range (inclusive). Time components are ignored.
+  /// Builds a request for an inclusive date range using `dailyRollUp`.
   factory GoogleHealthCaloriesAPIURL.dateRange({
     required DateTime startDate,
     required DateTime endDate,
   }) {
     final uri = Uri.https(
       'health.googleapis.com',
-      '/v4/users/me/dataTypes/total-calories/dataPoints:dailyRollup',
-      {'startTime': _formatDate(startDate), 'endTime': _formatDate(endDate)},
+      '/v4/users/me/dataTypes/$dataType/dataPoints:dailyRollUp',
     );
-    return GoogleHealthCaloriesAPIURL._(uri: uri);
+    return GoogleHealthCaloriesAPIURL._(
+      uri: uri,
+      method: GoogleHealthRequestMethod.post,
+      body: buildCivilRange(
+        startDate: startDate,
+        endDate: exclusiveDayAfter(endDate),
+      ),
+    );
   }
 
-  /// Builds a URL for intraday calories data using the `dataPoints` list endpoint.
-  ///
-  /// Returns individual calories events within the given time window.
-  ///
-  /// - [startTime]: Start of the time window (UTC is recommended).
-  /// - [endTime]: End of the time window (UTC is recommended).
-  factory GoogleHealthCaloriesAPIURL.intraday({
+  /// `total-calories` only supports rollup endpoints, but rollUp (POST) can
+  /// be used for arbitrary windows.
+  factory GoogleHealthCaloriesAPIURL.rollUp({
     required DateTime startTime,
     required DateTime endTime,
+    Duration windowSize = const Duration(hours: 1),
   }) {
     final uri = Uri.https(
       'health.googleapis.com',
-      '/v4/users/me/dataTypes/total-calories/dataPoints',
-      {
-        'startTime': startTime.toUtc().toIso8601String(),
-        'endTime': endTime.toUtc().toIso8601String(),
-      },
+      '/v4/users/me/dataTypes/$dataType/dataPoints:rollUp',
     );
-    return GoogleHealthCaloriesAPIURL._(uri: uri);
+    final body = buildPhysicalRange(startTime: startTime, endTime: endTime)
+      ..['windowSize'] = '${windowSize.inSeconds}s';
+    return GoogleHealthCaloriesAPIURL._(
+      uri: uri,
+      method: GoogleHealthRequestMethod.post,
+      body: body,
+    );
   }
 
-  static String _formatDate(DateTime d) =>
-      '${d.year.toString().padLeft(4, '0')}-'
-      '${d.month.toString().padLeft(2, '0')}-'
-      '${d.day.toString().padLeft(2, '0')}';
+  /// Reserved for the field-key inspection (used by data parser).
+  static String get fieldKey => _fieldKey;
 }

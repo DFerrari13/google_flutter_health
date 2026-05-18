@@ -1,71 +1,82 @@
+import '_parsing_helpers.dart';
+
 /// A single weight measurement from the Google Health API.
 ///
-/// Weight is logged sporadically — each instance represents one weigh-in
-/// event with the body composition fields available at that time.
+/// For raw `list` responses each instance represents a single weigh-in.
+/// For `dailyRollUp` responses each instance represents a daily aggregate
+/// (avg, min, max).
 class GoogleHealthWeightData {
-  /// The Google Health user ID associated with this data point.
-  final String? userId;
+  final String? name;
 
-  /// The timestamp of this measurement in local time.
-  final DateTime? dateTime;
+  /// Sample timestamp (raw list responses).
+  final DateTime? sampleTime;
 
-  /// Body weight in kilograms.
+  /// Civil-day bucket start (dailyRollUp responses).
+  final DateTime? civilStartTime;
+
+  /// Civil-day bucket end (dailyRollUp responses).
+  final DateTime? civilEndTime;
+
+  /// Weight in kilograms (raw sample) or average kilograms (rollup).
   final double? weightKg;
 
-  /// Body Mass Index (BMI).
-  final double? bmi;
+  /// Minimum weight observed in the rollup window.
+  final double? weightKgMin;
 
-  /// Body fat percentage (0–100).
-  final double? bodyFatPercentage;
+  /// Maximum weight observed in the rollup window.
+  final double? weightKgMax;
 
   const GoogleHealthWeightData({
-    this.userId,
-    this.dateTime,
+    this.name,
+    this.sampleTime,
+    this.civilStartTime,
+    this.civilEndTime,
     this.weightKg,
-    this.bmi,
-    this.bodyFatPercentage,
+    this.weightKgMin,
+    this.weightKgMax,
   });
 
-  /// Creates a [GoogleHealthWeightData] from a raw API JSON map.
-  ///
-  /// The Google Health API returns weight components under a nested `value`
-  /// object with keys `weightKg`, `bmi`, and `bodyFatPercentage`. Top-level
-  /// keys are also accepted for convenience.
   factory GoogleHealthWeightData.fromJson(Map<String, dynamic> json) {
-    final value = json['value'];
-    final inner =
-        value is Map<String, dynamic> ? value : const <String, dynamic>{};
+    final field = json['weight'];
+    final w = field is Map<String, dynamic> ? field : const <String, dynamic>{};
 
-    double? readDouble(String key) {
-      final v = inner[key] ?? json[key];
-      return (v as num?)?.toDouble();
+    if (json.containsKey('civilStartTime')) {
+      return GoogleHealthWeightData(
+        name: json['name'] as String?,
+        civilStartTime: parseCivilDateTime(json['civilStartTime']),
+        civilEndTime: parseCivilDateTime(json['civilEndTime']),
+        weightKg: parseNumber(
+          w['weightKilogramsAvg'] ?? w['weightKgAvg'] ?? w['weightKilograms'],
+        ),
+        weightKgMin: parseNumber(w['weightKilogramsMin'] ?? w['weightKgMin']),
+        weightKgMax: parseNumber(w['weightKilogramsMax'] ?? w['weightKgMax']),
+      );
     }
 
+    final sampleField = w['sampleTime'];
+    final sample = sampleField is Map<String, dynamic>
+        ? sampleField
+        : const <String, dynamic>{};
     return GoogleHealthWeightData(
-      userId: json['userId'] as String?,
-      dateTime: json['startTime'] != null
-          ? DateTime.parse(json['startTime'] as String).toLocal()
-          : null,
-      weightKg: readDouble('weightKg'),
-      bmi: readDouble('bmi'),
-      bodyFatPercentage: readDouble('bodyFatPercentage'),
+      name: json['name'] as String?,
+      sampleTime: parsePhysicalTime(sample['physicalTime']),
+      weightKg: parseNumber(w['weightKilograms'] ?? w['weightKg']),
     );
   }
 
-  /// Serialises this data point to a JSON-compatible map.
   Map<String, dynamic> toJson() => {
-        'userId': userId,
-        'startTime': dateTime?.toUtc().toIso8601String(),
-        'value': {
-          'weightKg': weightKg,
-          'bmi': bmi,
-          'bodyFatPercentage': bodyFatPercentage,
-        },
+        'name': name,
+        'sampleTime': sampleTime?.toUtc().toIso8601String(),
+        'civilStartTime': civilStartTime?.toUtc().toIso8601String(),
+        'civilEndTime': civilEndTime?.toUtc().toIso8601String(),
+        'weightKg': weightKg,
+        'weightKgMin': weightKgMin,
+        'weightKgMax': weightKgMax,
       };
 
   @override
-  String toString() => 'GoogleHealthWeightData('
-      'userId: $userId, dateTime: $dateTime, '
-      'weightKg: $weightKg, bmi: $bmi, '
-      'bodyFatPercentage: $bodyFatPercentage)';
+  String toString() => 'GoogleHealthWeightData(name: $name, '
+      'sampleTime: $sampleTime, civilStartTime: $civilStartTime, '
+      'civilEndTime: $civilEndTime, weightKg: $weightKg, '
+      'weightKgMin: $weightKgMin, weightKgMax: $weightKgMax)';
 }

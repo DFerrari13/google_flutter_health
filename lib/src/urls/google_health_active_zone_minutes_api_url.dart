@@ -1,70 +1,63 @@
 import 'google_health_api_url.dart';
+import '_request_helpers.dart';
 
-/// URL builder for the Google Health active-zone-minutes data type.
-///
-/// Use the factory constructors to build the appropriate URL, then pass the
-/// instance to [GoogleHealthActiveZoneMinutesDataManager.fetch].
-///
-/// ```dart
-/// // Today's active zone minutes
-/// final url = GoogleHealthActiveZoneMinutesAPIURL.day(date: DateTime.now());
-/// ```
+/// URL builder for the Google Health `active-zone-minutes` data type.
 class GoogleHealthActiveZoneMinutesAPIURL extends GoogleHealthAPIURL {
-  GoogleHealthActiveZoneMinutesAPIURL._({required super.uri});
+  const GoogleHealthActiveZoneMinutesAPIURL._({
+    required super.uri,
+    required super.method,
+    super.body,
+  });
 
-  /// Builds a URL for a single day's AZM using the `dailyRollup` endpoint.
-  ///
-  /// - [date]: The calendar day to query. Time components are ignored.
+  /// The data-type identifier used by the Google Health API.
+  static const String dataType = 'active-zone-minutes';
+
+  /// Builds a request for a single calendar day using `dailyRollUp`.
   factory GoogleHealthActiveZoneMinutesAPIURL.day({required DateTime date}) {
-    final uri = Uri.https(
-      'health.googleapis.com',
-      '/v4/users/me/dataTypes/active-zone-minutes/dataPoints:dailyRollup',
-      {'startTime': _formatDate(date), 'endTime': _formatDate(date)},
+    return GoogleHealthActiveZoneMinutesAPIURL.dateRange(
+      startDate: date,
+      endDate: date,
     );
-    return GoogleHealthActiveZoneMinutesAPIURL._(uri: uri);
   }
 
-  /// Builds a URL for a date range using the `dailyRollup` endpoint.
-  ///
-  /// Returns one data point per day in the range.
-  ///
-  /// - [startDate]: First day of the range (inclusive). Time components are ignored.
-  /// - [endDate]: Last day of the range (inclusive). Time components are ignored.
+  /// Builds a request for an inclusive date range using `dailyRollUp`.
   factory GoogleHealthActiveZoneMinutesAPIURL.dateRange({
     required DateTime startDate,
     required DateTime endDate,
   }) {
     final uri = Uri.https(
       'health.googleapis.com',
-      '/v4/users/me/dataTypes/active-zone-minutes/dataPoints:dailyRollup',
-      {'startTime': _formatDate(startDate), 'endTime': _formatDate(endDate)},
+      '/v4/users/me/dataTypes/$dataType/dataPoints:dailyRollUp',
     );
-    return GoogleHealthActiveZoneMinutesAPIURL._(uri: uri);
+    return GoogleHealthActiveZoneMinutesAPIURL._(
+      uri: uri,
+      method: GoogleHealthRequestMethod.post,
+      body: buildCivilRange(
+        startDate: startDate,
+        endDate: exclusiveDayAfter(endDate),
+      ),
+    );
   }
 
-  /// Builds a URL for intraday AZM data using the `dataPoints` list endpoint.
-  ///
-  /// Returns individual AZM events within the given time window.
-  ///
-  /// - [startTime]: Start of the time window (UTC is recommended).
-  /// - [endTime]: End of the time window (UTC is recommended).
+  /// Builds a request for raw intraday active-zone-minutes intervals using
+  /// `list`.
   factory GoogleHealthActiveZoneMinutesAPIURL.intraday({
     required DateTime startTime,
     required DateTime endTime,
   }) {
+    final filter = buildTimeFilter(
+      fieldPath: 'active_zone_minutes.interval.start_time',
+      startTime: startTime,
+      endTime: endTime,
+    );
     final uri = Uri.https(
       'health.googleapis.com',
-      '/v4/users/me/dataTypes/active-zone-minutes/dataPoints',
-      {
-        'startTime': startTime.toUtc().toIso8601String(),
-        'endTime': endTime.toUtc().toIso8601String(),
-      },
+      '/v4/users/me/dataTypes/$dataType/dataPoints',
+      {'filter': filter},
     );
-    return GoogleHealthActiveZoneMinutesAPIURL._(uri: uri);
+    return GoogleHealthActiveZoneMinutesAPIURL._(
+      uri: uri,
+      method: GoogleHealthRequestMethod.get,
+    );
   }
-
-  static String _formatDate(DateTime d) =>
-      '${d.year.toString().padLeft(4, '0')}-'
-      '${d.month.toString().padLeft(2, '0')}-'
-      '${d.day.toString().padLeft(2, '0')}';
 }

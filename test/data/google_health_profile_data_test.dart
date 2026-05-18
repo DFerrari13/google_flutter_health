@@ -3,75 +3,63 @@ import 'package:google_flutter_health/google_flutter_health.dart';
 
 void main() {
   group('GoogleHealthProfileData', () {
-    const fullJson = <String, dynamic>{
-      'userId': 'user_123',
-      'displayName': 'John Doe',
-      'givenName': 'John',
-      'familyName': 'Doe',
-      'birthdate': '1990-01-15',
-      'heightCm': 175.0,
-      'weightKg': 70.5,
-      'sex': 'MALE',
-      'locale': 'en_US',
-      'timezone': 'America/New_York',
-    };
-
-    test('fromJson parses all fields correctly', () {
-      final data = GoogleHealthProfileData.fromJson(fullJson);
-      expect(data.userId, 'user_123');
-      expect(data.displayName, 'John Doe');
-      expect(data.givenName, 'John');
-      expect(data.familyName, 'Doe');
-      expect(data.birthdate, '1990-01-15');
-      expect(data.heightCm, 175.0);
-      expect(data.weightKg, 70.5);
-      expect(data.sex, 'MALE');
-      expect(data.locale, 'en_US');
-      expect(data.timezone, 'America/New_York');
+    test('fromMerged combines profile and settings responses', () {
+      final data = GoogleHealthProfileData.fromMerged(
+        profile: <String, dynamic>{
+          'name': 'users/me/profile',
+          'age': '32',
+          'membershipStartDate': '2022-04-01',
+          'userConfiguredWalkingStrideLengthMm': 740,
+          'autoRunningStrideLengthMm': 1180,
+        },
+        settings: <String, dynamic>{
+          'name': 'users/me/settings',
+          'autoStrideEnabled': true,
+          'distanceUnit': 'KILOMETERS',
+          'weightUnit': 'KILOGRAMS',
+          'temperatureUnit': 'CELSIUS',
+          'timeZone': 'America/New_York',
+          'languageLocale': 'en-US',
+        },
+      );
+      expect(data.profileName, 'users/me/profile');
+      expect(data.age, 32);
+      expect(data.membershipStartDate, '2022-04-01');
+      expect(data.userConfiguredWalkingStrideLengthMm, 740);
+      expect(data.autoRunningStrideLengthMm, 1180);
+      expect(data.settingsName, 'users/me/settings');
+      expect(data.autoStrideEnabled, isTrue);
+      expect(data.distanceUnit, 'KILOMETERS');
+      expect(data.weightUnit, 'KILOGRAMS');
+      expect(data.temperatureUnit, 'CELSIUS');
+      expect(data.timeZone, 'America/New_York');
+      expect(data.languageLocale, 'en-US');
     });
 
-    test('toJson serializes correctly', () {
-      final data = GoogleHealthProfileData.fromJson(fullJson);
+    test('fromJson/toJson roundtrip preserves all fields', () {
+      const data = GoogleHealthProfileData(
+        age: 40,
+        membershipStartDate: '2020-01-01',
+        distanceUnit: 'MILES',
+        weightUnit: 'POUNDS',
+        timeZone: 'UTC',
+      );
       final json = data.toJson();
-      expect(json['userId'], 'user_123');
-      expect(json['displayName'], 'John Doe');
-      expect(json['givenName'], 'John');
-      expect(json['familyName'], 'Doe');
-      expect(json['birthdate'], '1990-01-15');
-      expect(json['heightCm'], 175.0);
-      expect(json['weightKg'], 70.5);
-      expect(json['sex'], 'MALE');
-      expect(json['locale'], 'en_US');
-      expect(json['timezone'], 'America/New_York');
+      final restored = GoogleHealthProfileData.fromJson(json);
+      expect(restored.age, 40);
+      expect(restored.membershipStartDate, '2020-01-01');
+      expect(restored.distanceUnit, 'MILES');
+      expect(restored.weightUnit, 'POUNDS');
+      expect(restored.timeZone, 'UTC');
     });
 
-    test('fromJson/toJson roundtrip', () {
-      final original = GoogleHealthProfileData.fromJson(fullJson);
-      final roundtripped = GoogleHealthProfileData.fromJson(original.toJson());
-      expect(roundtripped.userId, original.userId);
-      expect(roundtripped.displayName, original.displayName);
-      expect(roundtripped.givenName, original.givenName);
-      expect(roundtripped.familyName, original.familyName);
-      expect(roundtripped.birthdate, original.birthdate);
-      expect(roundtripped.heightCm, original.heightCm);
-      expect(roundtripped.weightKg, original.weightKg);
-      expect(roundtripped.sex, original.sex);
-      expect(roundtripped.locale, original.locale);
-      expect(roundtripped.timezone, original.timezone);
-    });
-
-    test('fromJson handles null fields gracefully', () {
-      final data = GoogleHealthProfileData.fromJson({});
-      expect(data.userId, isNull);
-      expect(data.displayName, isNull);
-      expect(data.givenName, isNull);
-      expect(data.familyName, isNull);
-      expect(data.birthdate, isNull);
-      expect(data.heightCm, isNull);
-      expect(data.weightKg, isNull);
-      expect(data.sex, isNull);
-      expect(data.locale, isNull);
-      expect(data.timezone, isNull);
+    test('handles missing fields gracefully', () {
+      final data = GoogleHealthProfileData.fromMerged(
+        profile: const <String, dynamic>{},
+        settings: const <String, dynamic>{},
+      );
+      expect(data.age, isNull);
+      expect(data.distanceUnit, isNull);
     });
   });
 }
