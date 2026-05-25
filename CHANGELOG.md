@@ -1,3 +1,20 @@
+## 0.5.0
+
+### Fixed
+
+- Fixed URL builder tests for daily endpoints (HRV, oxygen saturation, resting
+  heart rate) that expected filter expressions but implementations don't support
+  them per Google Health API spec.
+- Fixed tests for sleep, exercise, and active zone minutes to expect correct
+  `civil_start_time` and `civil_end_time` field paths instead of `start_time`.
+- All 83 unit tests now passing with zero warnings.
+
+### Added
+
+- Comprehensive pub.dev publishing guidelines in README with security checklist
+  and sensitive data protection best practices.
+- `test` package added to dev dependencies for running test suite.
+
 ## 0.4.0
 
 ### Added
