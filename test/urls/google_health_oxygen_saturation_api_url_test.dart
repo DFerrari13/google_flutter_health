@@ -4,7 +4,8 @@ import 'package:google_flutter_health/google_flutter_health.dart';
 void main() {
   group('GoogleHealthOxygenSaturationAPIURL', () {
     test('day() builds GET list URL without filter', () {
-      final url = GoogleHealthOxygenSaturationAPIURL.day(date: DateTime(2026, 1, 1));
+      final url =
+          GoogleHealthOxygenSaturationAPIURL.day(date: DateTime(2026, 1, 1));
       expect(url.method, GoogleHealthRequestMethod.get);
       expect(
         url.uri.path,

@@ -3,7 +3,8 @@ import 'package:google_flutter_health/google_flutter_health.dart';
 
 void main() {
   group('GoogleHealthSleepAPIURL', () {
-    test('day() builds GET list URL filtered on sleep.interval.civil_end_time', () {
+    test('day() builds GET list URL filtered on sleep.interval.civil_end_time',
+        () {
       final url = GoogleHealthSleepAPIURL.day(date: DateTime(2026, 1, 15));
       expect(url.method, GoogleHealthRequestMethod.get);
       expect(url.uri.path, '/v4/users/me/dataTypes/sleep/dataPoints');

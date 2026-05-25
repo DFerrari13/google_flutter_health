@@ -70,8 +70,7 @@ String buildCivilDateFilter({
   required DateTime startDate,
   required DateTime endDate,
 }) {
-  String fmt(DateTime d) =>
-      '${d.year.toString().padLeft(4, '0')}-'
+  String fmt(DateTime d) => '${d.year.toString().padLeft(4, '0')}-'
       '${d.month.toString().padLeft(2, '0')}-'
       '${d.day.toString().padLeft(2, '0')}';
   return '$fieldPath >= "${fmt(startDate)}" AND $fieldPath < "${fmt(endDate)}"';

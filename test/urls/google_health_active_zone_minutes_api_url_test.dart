@@ -13,7 +13,8 @@ void main() {
       expect(url.method, GoogleHealthRequestMethod.post);
     });
 
-    test('intraday() filter targets active_zone_minutes.interval.civil_start_time',
+    test(
+        'intraday() filter targets active_zone_minutes.interval.civil_start_time',
         () {
       final url = GoogleHealthActiveZoneMinutesAPIURL.intraday(
         startTime: DateTime.utc(2026, 1, 15, 10),
