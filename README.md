@@ -476,9 +476,10 @@ print('Age: ${profile.age}, prefers ${profile.distanceUnit}');
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `userId` | `String?` | Google Health user ID |
-| `dateTime` | `DateTime?` | Timestamp in local time |
-| `distanceMeters` | `double?` | Distance in meters |
+| `name` | `String?` | Resource name (raw responses) |
+| `startTime` | `DateTime?` | Interval start in local time |
+| `endTime` | `DateTime?` | Interval end in local time |
+| `distanceMeters` | `double?` | Distance in meters (interval raw or daily sum) |
 
 **URL builders:**
 
@@ -507,12 +508,13 @@ print('Distance today: ${km.toStringAsFixed(2)} km');
 
 ### Calories
 
-**Model:** `GoogleHealthCaloriesData`
+**Model:** `GoogleHealthCaloriesData` (`total-calories` data type — rollup endpoints only)
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `userId` | `String?` | Google Health user ID |
-| `dateTime` | `DateTime?` | Timestamp in local time |
+| `name` | `String?` | Resource name |
+| `startTime` | `DateTime?` | Interval start in local time |
+| `endTime` | `DateTime?` | Interval end in local time |
 | `calories` | `double?` | Energy expenditure in kilocalories |
 
 **URL builders:**
@@ -520,7 +522,11 @@ print('Distance today: ${km.toStringAsFixed(2)} km');
 ```dart
 GoogleHealthCaloriesAPIURL.day(date: DateTime.now())
 GoogleHealthCaloriesAPIURL.dateRange(startDate: start, endDate: end)
-GoogleHealthCaloriesAPIURL.intraday(startTime: start, endTime: end)
+GoogleHealthCaloriesAPIURL.rollUp(
+  startTime: start,
+  endTime: end,
+  windowSize: const Duration(hours: 1),
+)
 ```
 
 **Example:**
@@ -538,7 +544,7 @@ final result = await manager.fetch(
   ),
 );
 for (final point in result.data) {
-  print('${point.dateTime}: ${point.calories} kcal');
+  print('${point.startTime}: ${point.calories} kcal');
 }
 ```
 
@@ -550,8 +556,9 @@ for (final point in result.data) {
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `userId` | `String?` | Google Health user ID |
-| `dateTime` | `DateTime?` | Timestamp in local time |
+| `name` | `String?` | Resource name |
+| `startTime` | `DateTime?` | Interval start in local time |
+| `endTime` | `DateTime?` | Interval end in local time |
 | `fatBurnMinutes` | `double?` | Minutes in fat-burn zone |
 | `cardioMinutes` | `double?` | Minutes in cardio zone |
 | `peakMinutes` | `double?` | Minutes in peak zone |
@@ -589,16 +596,18 @@ print('AZM today — fat burn: ${azm.fatBurnMinutes}, '
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `userId` | `String?` | Google Health user ID |
-| `dateTime` | `DateTime?` | Date (start of calendar day) in local time |
+| `name` | `String?` | Resource name |
+| `startTime` | `DateTime?` | Civil-day start in local time |
+| `endTime` | `DateTime?` | Civil-day end in local time |
 | `beatsPerMinute` | `double?` | Resting heart rate in bpm |
 
-Resting heart rate is a **daily-only metric** computed by the API. Only `dailyRollup()` is available.
+Resting heart rate is a **daily-aggregated metric** computed by the API and exposed via the `list` endpoint.
 
 **URL builders:**
 
 ```dart
-GoogleHealthRestingHeartRateAPIURL.dailyRollup(
+GoogleHealthRestingHeartRateAPIURL.day(date: DateTime.now())
+GoogleHealthRestingHeartRateAPIURL.dateRange(
   startDate: DateTime.now().subtract(const Duration(days: 6)),
   endDate: DateTime.now(),
 )
@@ -613,13 +622,13 @@ final manager = GoogleHealthRestingHeartRateDataManager(
   clientSecret: clientSecret,
 );
 final result = await manager.fetch(
-  GoogleHealthRestingHeartRateAPIURL.dailyRollup(
+  GoogleHealthRestingHeartRateAPIURL.dateRange(
     startDate: DateTime.now().subtract(const Duration(days: 29)),
     endDate: DateTime.now(),
   ),
 );
 for (final point in result.data) {
-  print('${point.dateTime}: ${point.beatsPerMinute} bpm');
+  print('${point.startTime}: ${point.beatsPerMinute} bpm');
 }
 ```
 
@@ -631,18 +640,20 @@ for (final point in result.data) {
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `userId` | `String?` | Google Health user ID |
-| `dateTime` | `DateTime?` | Date (start of calendar day) in local time |
-| `spo2Percentage` | `double?` | Average SpO2 for the day (0–100) |
-| `spo2Low` | `double?` | Minimum SpO2 observed (0–100) |
-| `spo2High` | `double?` | Maximum SpO2 observed (0–100) |
+| `name` | `String?` | Resource name |
+| `startTime` | `DateTime?` | Civil-day start in local time |
+| `endTime` | `DateTime?` | Civil-day end in local time |
+| `percentageAvg` | `double?` | Average SpO2 for the day (0–100) |
+| `percentageMin` | `double?` | Minimum SpO2 observed (0–100) |
+| `percentageMax` | `double?` | Maximum SpO2 observed (0–100) |
 
-SpO2 is a **daily-only metric**. Only `dailyRollup()` is available.
+SpO2 is a **daily-aggregated metric** exposed via `list`.
 
 **URL builders:**
 
 ```dart
-GoogleHealthOxygenSaturationAPIURL.dailyRollup(
+GoogleHealthOxygenSaturationAPIURL.day(date: DateTime.now())
+GoogleHealthOxygenSaturationAPIURL.dateRange(
   startDate: DateTime.now().subtract(const Duration(days: 6)),
   endDate: DateTime.now(),
 )
@@ -657,14 +668,14 @@ final manager = GoogleHealthOxygenSaturationDataManager(
   clientSecret: clientSecret,
 );
 final result = await manager.fetch(
-  GoogleHealthOxygenSaturationAPIURL.dailyRollup(
+  GoogleHealthOxygenSaturationAPIURL.dateRange(
     startDate: DateTime.now().subtract(const Duration(days: 6)),
     endDate: DateTime.now(),
   ),
 );
 for (final point in result.data) {
-  print('${point.dateTime}: avg ${point.spo2Percentage}% '
-      '(${point.spo2Low}–${point.spo2High}%)');
+  print('${point.startTime}: avg ${point.percentageAvg}% '
+      '(${point.percentageMin}–${point.percentageMax}%)');
 }
 ```
 
@@ -676,19 +687,21 @@ for (final point in result.data) {
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `userId` | `String?` | Google Health user ID |
-| `dateTime` | `DateTime?` | Date (start of calendar day) in local time |
+| `name` | `String?` | Resource name |
+| `startTime` | `DateTime?` | Civil-day start in local time |
+| `endTime` | `DateTime?` | Civil-day end in local time |
 | `rmssd` | `double?` | Root mean square of successive differences (ms) |
 | `coverage` | `double?` | Fraction of day with valid HRV data (0.0–1.0) |
 | `hfPower` | `double?` | High-frequency power band (ms²) |
 | `lfPower` | `double?` | Low-frequency power band (ms²) |
 
-HRV is a **daily-only metric**. Only `dailyRollup()` is available.
+HRV is a **daily-aggregated metric** exposed via `list`.
 
 **URL builders:**
 
 ```dart
-GoogleHealthHrvAPIURL.dailyRollup(
+GoogleHealthHrvAPIURL.day(date: DateTime.now())
+GoogleHealthHrvAPIURL.dateRange(
   startDate: DateTime.now().subtract(const Duration(days: 6)),
   endDate: DateTime.now(),
 )
@@ -703,13 +716,13 @@ final manager = GoogleHealthHrvDataManager(
   clientSecret: clientSecret,
 );
 final result = await manager.fetch(
-  GoogleHealthHrvAPIURL.dailyRollup(
+  GoogleHealthHrvAPIURL.dateRange(
     startDate: DateTime.now().subtract(const Duration(days: 6)),
     endDate: DateTime.now(),
   ),
 );
 for (final point in result.data) {
-  print('${point.dateTime}: RMSSD ${point.rmssd} ms');
+  print('${point.startTime}: RMSSD ${point.rmssd} ms');
 }
 ```
 
@@ -721,17 +734,20 @@ for (final point in result.data) {
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `userId` | `String?` | Google Health user ID |
-| `dateTime` | `DateTime?` | Weigh-in timestamp in local time |
-| `weightKg` | `double?` | Body weight in kilograms |
-| `bmi` | `double?` | Body Mass Index |
-| `bodyFatPercentage` | `double?` | Body fat percentage (0–100) |
+| `name` | `String?` | Resource name |
+| `sampleTime` | `DateTime?` | Weigh-in timestamp (raw `list` responses) |
+| `civilStartTime` | `DateTime?` | Civil-day bucket start (`dailyRollUp`) |
+| `civilEndTime` | `DateTime?` | Civil-day bucket end (`dailyRollUp`) |
+| `weightKg` | `double?` | Body weight (raw sample or daily average) |
+| `weightKgMin` | `double?` | Minimum daily weight (`dailyRollUp`) |
+| `weightKgMax` | `double?` | Maximum daily weight (`dailyRollUp`) |
 
-Weight is a **sporadic metric** — one data point per logged weigh-in. There is no `day()` builder; use `dateRange()` or `intraday()`.
+Weight is a sample-based metric — `intraday()` returns raw weigh-ins, `day()` / `dateRange()` return daily aggregates.
 
 **URL builders:**
 
 ```dart
+GoogleHealthWeightAPIURL.day(date: DateTime.now())
 GoogleHealthWeightAPIURL.dateRange(startDate: start, endDate: end)
 GoogleHealthWeightAPIURL.intraday(startTime: start, endTime: end)
 ```
@@ -745,13 +761,13 @@ final manager = GoogleHealthWeightDataManager(
   clientSecret: clientSecret,
 );
 final result = await manager.fetch(
-  GoogleHealthWeightAPIURL.dateRange(
-    startDate: DateTime.now().subtract(const Duration(days: 29)),
-    endDate: DateTime.now(),
+  GoogleHealthWeightAPIURL.intraday(
+    startTime: DateTime.now().subtract(const Duration(days: 29)),
+    endTime: DateTime.now(),
   ),
 );
 for (final point in result.data) {
-  print('${point.dateTime}: ${point.weightKg} kg, BMI ${point.bmi}');
+  print('${point.sampleTime}: ${point.weightKg} kg');
 }
 ```
 
@@ -763,20 +779,20 @@ for (final point in result.data) {
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `userId` | `String?` | Google Health user ID |
+| `name` | `String?` | Resource name |
 | `startTime` | `DateTime?` | Session start in local time |
 | `endTime` | `DateTime?` | Session end in local time |
-| `activityType` | `String?` | Activity identifier (e.g. `"running"`, `"cycling"`) |
-| `durationMillis` | `double?` | Session duration in milliseconds |
+| `exerciseType` | `String?` | Exercise enum (e.g. `RUNNING`, `WALKING`, `BIKING`) |
+| `displayName` | `String?` | Human-readable session name |
+| `duration` | `Duration?` | Session duration (computed from start/end) |
 | `calories` | `double?` | Energy expenditure in kilocalories |
 | `distanceMeters` | `double?` | Distance covered in meters |
-| `steps` | `double?` | Step count for the session |
-
-Exercise sessions use `startTime` + `endTime` instead of a single `dateTime` field. There is no `day()` builder; use `dateRange()` or `intraday()`.
+| `steps` | `int?` | Step count for the session |
 
 **URL builders:**
 
 ```dart
+GoogleHealthExerciseAPIURL.day(date: DateTime.now())
 GoogleHealthExerciseAPIURL.dateRange(startDate: start, endDate: end)
 GoogleHealthExerciseAPIURL.intraday(startTime: start, endTime: end)
 ```
@@ -796,12 +812,24 @@ final result = await manager.fetch(
   ),
 );
 for (final session in result.data) {
-  final durationMin = (session.durationMillis ?? 0) / 60000;
-  print('${session.startTime}: ${session.activityType} '
-      '${durationMin.toStringAsFixed(0)} min, '
+  final mins = session.duration?.inMinutes ?? 0;
+  print('${session.startTime}: ${session.exerciseType} '
+      '$mins min, '
       '${session.distanceMeters != null ? "${(session.distanceMeters! / 1000).toStringAsFixed(2)} km" : ""}');
 }
 ```
+
+---
+
+## Pagination & Time Range Limits
+
+* The Google Health API returns up to 1,440 data points per page (25 for
+  `exercise` / `sleep`). When the response contains a `nextPageToken`,
+  this library currently returns only the first page — fetch subsequent
+  pages manually by appending `&pageToken=…` to the URL.
+* List queries are capped at **14 days** for `heart-rate`,
+  `active-minutes`, `total-calories`, and `calories-in-heart-rate-zone`,
+  and **90 days** for all other types. Split larger windows yourself.
 
 ---
 
@@ -834,6 +862,77 @@ Contributions are welcome! Please open an issue before submitting a PR to discus
 2. Run `flutter test` — all tests must pass.
 3. Run `dart format --set-exit-if-changed lib test` — code must be formatted.
 4. Add tests for any new data type following the existing pattern.
+
+---
+
+## Publishing to Pub.dev
+
+This package is ready for publication. Before publishing:
+
+### Pre-Publication Checklist
+
+1. **Verify package state:**
+   ```sh
+   flutter pub publish --dry-run
+   dart pub global activate pana
+   pana
+   ```
+
+2. **Ensure no personal data is packaged:**
+   - ✅ No `.env` files or credentials in the package
+   - ✅ No personal API keys or tokens in docs or examples
+   - ✅ No secrets in `.gitignore` are included
+   - ✅ All example API keys are placeholders only
+   - ✅ No personal information in commit messages or git history
+
+3. **Verify files in `pubspec.yaml`:**
+   ```yaml
+   publish_to: "https://pub.dev"
+   ```
+
+4. **Update version and changelog:**
+   - Increment `version` in `pubspec.yaml`
+   - Add entry to `CHANGELOG.md` with date and changes
+   - Tag release: `git tag v{version}`
+
+5. **Quality checks pass:**
+   ```sh
+   dart analyze --fatal-infos
+   flutter test
+   dart format --set-exit-if-changed lib test
+   ```
+
+### Publication Steps
+
+1. **Authenticate (first time only):**
+   ```sh
+   dart pub login
+   ```
+
+2. **Publish:**
+   ```sh
+   dart pub publish
+   ```
+
+3. **Verify on pub.dev:**
+   - Visit https://pub.dev/packages/google_flutter_health
+   - Confirm version, docs, and examples are correct
+   - Check that no sensitive data is exposed
+
+### Sensitive Data Guidelines
+
+**Do NOT include:**
+- Real OAuth client IDs or secrets (use placeholders like `YOUR_CLIENT_ID`)
+- User tokens, credentials, or API keys
+- Personal information (names, emails, phone numbers) except in docs clearly marked as placeholders
+- Encrypted secrets or `.env.example` with real values
+- Personal git commits or branch history
+
+**Always include:**
+- Example `.env` template with placeholder names
+- Placeholder values in all documentation and example code
+- Link to official setup guides (Google Cloud Console, etc.)
+- Clear guidance on where to obtain credentials
 
 ---
 

@@ -50,9 +50,8 @@ class GoogleHealthExerciseData {
     final ex =
         exField is Map<String, dynamic> ? exField : const <String, dynamic>{};
     final interval = ex['interval'];
-    final i = interval is Map<String, dynamic>
-        ? interval
-        : const <String, dynamic>{};
+    final i =
+        interval is Map<String, dynamic> ? interval : const <String, dynamic>{};
     final summary = ex['metricsSummary'];
     final s =
         summary is Map<String, dynamic> ? summary : const <String, dynamic>{};

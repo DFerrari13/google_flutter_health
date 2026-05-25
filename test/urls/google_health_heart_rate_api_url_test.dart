@@ -4,8 +4,7 @@ import 'package:google_flutter_health/google_flutter_health.dart';
 void main() {
   group('GoogleHealthHeartRateAPIURL', () {
     test('day() builds POST dailyRollUp with civil range', () {
-      final url =
-          GoogleHealthHeartRateAPIURL.day(date: DateTime(2026, 1, 15));
+      final url = GoogleHealthHeartRateAPIURL.day(date: DateTime(2026, 1, 15));
       expect(
         url.uri.toString(),
         'https://health.googleapis.com/v4/users/me/dataTypes/heart-rate/dataPoints:dailyRollUp',

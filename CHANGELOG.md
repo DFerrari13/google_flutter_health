@@ -1,3 +1,22 @@
+## 0.4.0
+
+### Added
+
+- `GoogleHealthBreathingRateDataManager` + `GoogleHealthBreathingRateAPIURL`
+  + `GoogleHealthBreathingRateData` — daily respiratory rate aggregates
+  (avg / min / max breaths per minute). Uses the
+  `googlehealth.health_metrics_and_measurements.readonly` scope.
+- `GoogleHealthSkinTemperatureDataManager` +
+  `GoogleHealthSkinTemperatureAPIURL` + `GoogleHealthSkinTemperatureData` —
+  nightly skin temperature variation in °C from the user's baseline. Uses
+  the `googlehealth.health_metrics_and_measurements.readonly` scope. Not an
+  absolute body-temperature reading.
+
+The JSON envelope parsers accept the alternate `daily-respiratory-rate`
+(`dailyRespiratoryRate`) and `daily-skin-temperature` (`dailySkinTemperature`)
+shapes too, so swapping the `dataType` constant if your project hits a 404
+does not require touching the data classes.
+
 ## 0.3.0
 
 ### Breaking changes

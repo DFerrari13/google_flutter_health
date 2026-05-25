@@ -5,7 +5,7 @@ import '_request_helpers.dart';
 ///
 /// Sleep is a Session record type; it only supports the `list` endpoint
 /// (and write operations that are not exposed by this library). All factories
-/// produce `GET` requests with a `filter` on `sleep.interval.start_time`.
+/// produce `GET` requests with a `filter` on `sleep.interval.civil_end_time`.
 class GoogleHealthSleepAPIURL extends GoogleHealthAPIURL {
   const GoogleHealthSleepAPIURL._({
     required super.uri,
@@ -47,10 +47,10 @@ class GoogleHealthSleepAPIURL extends GoogleHealthAPIURL {
     required DateTime startTime,
     required DateTime endTime,
   }) {
-    final filter = buildTimeFilter(
-      fieldPath: 'sleep.interval.start_time',
-      startTime: startTime,
-      endTime: endTime,
+    final filter = buildCivilDateFilter(
+      fieldPath: 'sleep.interval.civil_end_time',
+      startDate: startTime,
+      endDate: endTime,
     );
     final uri = Uri.https(
       'health.googleapis.com',

@@ -4,7 +4,9 @@
       "Bash(flutter clean *)",
       "Bash(flutter pub *)",
       "Bash(dart analyze *)",
-      "WebFetch(domain:developers.google.com)"
+      "WebFetch(domain:developers.google.com)",
+      "Bash(grep -n \"attemptLightweightAuthentication\\\\|authenticationEvents\\\\|GoogleIdentity\\\\|displayName\\\\|email\\\\b\\\\|\\\\.id\\\\b\" \"C:/Users/utente/AppData/Local/Pub/Cache/hosted/pub.dev/google_sign_in-7.1.1/lib/google_sign_in.dart\" | head -30)",
+      "Read(//c/Users/utente/AppData/Local/Pub/Cache/hosted/pub.dev/google_sign_in-7.1.1/lib/**)"
     ]
   }
 }

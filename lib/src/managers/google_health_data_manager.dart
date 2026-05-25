@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:http/http.dart' as http;
 import 'package:meta/meta.dart';
 
@@ -79,6 +80,10 @@ abstract class GoogleHealthDataManager<T> {
     final creds = await refreshIfNeeded(credentials);
     final response = await executeRequest(url: url, credentials: creds);
     checkResponse(response);
+
+    if (kDebugMode) {
+      debugPrint('[GoogleHealth] ${url.uri.path} → ${response.body}');
+    }
 
     Map<String, dynamic> json;
     try {

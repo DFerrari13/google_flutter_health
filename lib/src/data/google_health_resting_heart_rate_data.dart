@@ -17,8 +17,7 @@ class GoogleHealthRestingHeartRateData {
     this.beatsPerMinute,
   });
 
-  factory GoogleHealthRestingHeartRateData.fromJson(
-      Map<String, dynamic> json) {
+  factory GoogleHealthRestingHeartRateData.fromJson(Map<String, dynamic> json) {
     final field = json['dailyRestingHeartRate'];
     final r = field is Map<String, dynamic> ? field : const <String, dynamic>{};
 

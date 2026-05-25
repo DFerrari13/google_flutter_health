@@ -1,5 +1,4 @@
 import 'google_health_api_url.dart';
-import '_request_helpers.dart';
 
 /// URL builder for the Google Health `daily-oxygen-saturation` data type.
 ///
@@ -18,22 +17,15 @@ class GoogleHealthOxygenSaturationAPIURL extends GoogleHealthAPIURL {
     );
   }
 
+  /// The daily-oxygen-saturation endpoint does not support filter expressions.
+  /// Returns all available daily data points (typically ~30 days).
   factory GoogleHealthOxygenSaturationAPIURL.dateRange({
     required DateTime startDate,
     required DateTime endDate,
   }) {
-    final start = DateTime(startDate.year, startDate.month, startDate.day);
-    final end = DateTime(endDate.year, endDate.month, endDate.day)
-        .add(const Duration(days: 1));
-    final filter = buildTimeFilter(
-      fieldPath: 'daily_oxygen_saturation.civil_date_time.start_time',
-      startTime: start,
-      endTime: end,
-    );
     final uri = Uri.https(
       'health.googleapis.com',
       '/v4/users/me/dataTypes/$dataType/dataPoints',
-      {'filter': filter},
     );
     return GoogleHealthOxygenSaturationAPIURL._(uri: uri);
   }

@@ -1,5 +1,21 @@
 import '_parsing_helpers.dart';
 
+String? _parseMembershipDate(dynamic value) {
+  if (value == null) return null;
+  if (value is String) return value;
+  if (value is Map<String, dynamic>) {
+    final y = value['year'];
+    final m = value['month'];
+    final d = value['day'];
+    if (y != null && m != null && d != null) {
+      return '${y.toString().padLeft(4, '0')}-'
+          '${m.toString().padLeft(2, '0')}-'
+          '${d.toString().padLeft(2, '0')}';
+    }
+  }
+  return null;
+}
+
 /// The authenticated user's Google Health profile and settings.
 ///
 /// Combines fields from the `users/me/profile` and `users/me/settings`
@@ -106,7 +122,7 @@ class GoogleHealthProfileData {
     return GoogleHealthProfileData(
       profileName: profile['name'] as String?,
       age: parseInt64(profile['age']),
-      membershipStartDate: profile['membershipStartDate'] as String?,
+      membershipStartDate: _parseMembershipDate(profile['membershipStartDate']),
       userConfiguredWalkingStrideLengthMm:
           parseInt64(profile['userConfiguredWalkingStrideLengthMm']),
       userConfiguredRunningStrideLengthMm:
@@ -142,10 +158,8 @@ class GoogleHealthProfileData {
           parseInt64(json['userConfiguredWalkingStrideLengthMm']),
       userConfiguredRunningStrideLengthMm:
           parseInt64(json['userConfiguredRunningStrideLengthMm']),
-      autoWalkingStrideLengthMm:
-          parseInt64(json['autoWalkingStrideLengthMm']),
-      autoRunningStrideLengthMm:
-          parseInt64(json['autoRunningStrideLengthMm']),
+      autoWalkingStrideLengthMm: parseInt64(json['autoWalkingStrideLengthMm']),
+      autoRunningStrideLengthMm: parseInt64(json['autoRunningStrideLengthMm']),
       settingsName: json['settingsName'] as String?,
       autoStrideEnabled: json['autoStrideEnabled'] as bool?,
       distanceUnit: json['distanceUnit'] as String?,

@@ -48,16 +48,9 @@ Map<String, dynamic> buildPhysicalRange({
 }
 
 /// Builds a filter expression suitable for the `list` endpoint's `filter`
-/// query parameter.
+/// query parameter using RFC 3339 UTC timestamps.
 ///
-/// The expression compares an interval or sample time field against an
-/// inclusive lower bound and exclusive upper bound (RFC 3339 UTC).
-///
-/// Example output:
-/// ```
-/// steps.interval.start_time >= "2024-01-01T00:00:00.000Z" AND \
-/// steps.interval.start_time < "2024-01-02T00:00:00.000Z"
-/// ```
+/// Use for physical-time fields like `steps.interval.start_time`.
 String buildTimeFilter({
   required String fieldPath,
   required DateTime startTime,
@@ -66,6 +59,22 @@ String buildTimeFilter({
   final start = startTime.toUtc().toIso8601String();
   final end = endTime.toUtc().toIso8601String();
   return '$fieldPath >= "$start" AND $fieldPath < "$end"';
+}
+
+/// Builds a filter expression for civil-date fields (date-only, no time zone).
+///
+/// Use for session fields like `sleep.interval.civil_end_time` and
+/// `exercise.interval.civil_start_time`. Format: `YYYY-MM-DD`.
+String buildCivilDateFilter({
+  required String fieldPath,
+  required DateTime startDate,
+  required DateTime endDate,
+}) {
+  String fmt(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
+  return '$fieldPath >= "${fmt(startDate)}" AND $fieldPath < "${fmt(endDate)}"';
 }
 
 /// Adds one day to [date], used to convert an inclusive end date to the

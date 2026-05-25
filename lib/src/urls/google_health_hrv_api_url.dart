@@ -1,5 +1,4 @@
 import 'google_health_api_url.dart';
-import '_request_helpers.dart';
 
 /// URL builder for the Google Health `daily-heart-rate-variability` data type.
 class GoogleHealthHrvAPIURL extends GoogleHealthAPIURL {
@@ -13,23 +12,15 @@ class GoogleHealthHrvAPIURL extends GoogleHealthAPIURL {
     return GoogleHealthHrvAPIURL.dateRange(startDate: date, endDate: date);
   }
 
+  /// The daily-hrv endpoint does not support filter expressions.
+  /// Returns all available daily data points (typically ~30 days).
   factory GoogleHealthHrvAPIURL.dateRange({
     required DateTime startDate,
     required DateTime endDate,
   }) {
-    final start = DateTime(startDate.year, startDate.month, startDate.day);
-    final end = DateTime(endDate.year, endDate.month, endDate.day)
-        .add(const Duration(days: 1));
-    final filter = buildTimeFilter(
-      fieldPath:
-          'daily_heart_rate_variability.civil_date_time.start_time',
-      startTime: start,
-      endTime: end,
-    );
     final uri = Uri.https(
       'health.googleapis.com',
       '/v4/users/me/dataTypes/$dataType/dataPoints',
-      {'filter': filter},
     );
     return GoogleHealthHrvAPIURL._(uri: uri);
   }

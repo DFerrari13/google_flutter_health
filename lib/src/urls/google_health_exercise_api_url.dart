@@ -46,10 +46,10 @@ class GoogleHealthExerciseAPIURL extends GoogleHealthAPIURL {
     required DateTime startTime,
     required DateTime endTime,
   }) {
-    final filter = buildTimeFilter(
-      fieldPath: 'exercise.interval.start_time',
-      startTime: startTime,
-      endTime: endTime,
+    final filter = buildCivilDateFilter(
+      fieldPath: 'exercise.interval.civil_start_time',
+      startDate: startTime,
+      endDate: endTime,
     );
     final uri = Uri.https(
       'health.googleapis.com',

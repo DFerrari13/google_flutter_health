@@ -1,5 +1,4 @@
 import 'google_health_api_url.dart';
-import '_request_helpers.dart';
 
 /// URL builder for the Google Health `daily-resting-heart-rate` data type.
 ///
@@ -22,23 +21,17 @@ class GoogleHealthRestingHeartRateAPIURL extends GoogleHealthAPIURL {
     );
   }
 
-  /// Builds a list request covering an inclusive date range.
+  /// Builds a list request for this data type.
+  ///
+  /// The daily-resting-heart-rate endpoint does not support filter expressions.
+  /// The API returns all available daily data points (typically ~30 days).
   factory GoogleHealthRestingHeartRateAPIURL.dateRange({
     required DateTime startDate,
     required DateTime endDate,
   }) {
-    final start = DateTime(startDate.year, startDate.month, startDate.day);
-    final end = DateTime(endDate.year, endDate.month, endDate.day)
-        .add(const Duration(days: 1));
-    final filter = buildTimeFilter(
-      fieldPath: 'daily_resting_heart_rate.civil_date_time.start_time',
-      startTime: start,
-      endTime: end,
-    );
     final uri = Uri.https(
       'health.googleapis.com',
       '/v4/users/me/dataTypes/$dataType/dataPoints',
-      {'filter': filter},
     );
     return GoogleHealthRestingHeartRateAPIURL._(uri: uri);
   }

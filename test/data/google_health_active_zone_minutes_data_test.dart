@@ -4,8 +4,7 @@ import 'package:google_flutter_health/google_flutter_health.dart';
 void main() {
   group('GoogleHealthActiveZoneMinutesData', () {
     test('fromJson parses dailyRollUp aggregate', () {
-      final data =
-          GoogleHealthActiveZoneMinutesData.fromJson(<String, dynamic>{
+      final data = GoogleHealthActiveZoneMinutesData.fromJson(<String, dynamic>{
         'civilStartTime': {
           'date': {'year': 2026, 'month': 1, 'day': 15},
         },

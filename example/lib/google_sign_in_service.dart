@@ -68,8 +68,9 @@ class GoogleSignInService {
   /// Opens the Google consent screen and exchanges the resulting auth code.
   ///
   /// On success, [session.credentials] is populated and persisted.
+  /// Returns the [GoogleSignInAccount] so callers can read identity fields.
   /// Throws [GoogleHealthAuthException] or [GoogleSignInException] on failure.
-  Future<void> login() async {
+  Future<GoogleSignInAccount> login() async {
     if (!GoogleSignIn.instance.supportsAuthenticate()) {
       throw const GoogleHealthAuthException(
         'Interactive sign-in is not supported on this platform.',
@@ -94,6 +95,7 @@ class GoogleSignInService {
     );
 
     session.updateCredentials(creds);
+    return account;
   }
 
   /// Revokes the token, signs out of `google_sign_in`, and clears storage.

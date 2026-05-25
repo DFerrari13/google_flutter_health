@@ -14,8 +14,8 @@ void main() {
       final range = (url.body!['range'] as Map<String, dynamic>);
       expect((range['start'] as Map)['date'],
           {'year': 2026, 'month': 1, 'day': 15});
-      expect((range['end'] as Map)['date'],
-          {'year': 2026, 'month': 1, 'day': 16});
+      expect(
+          (range['end'] as Map)['date'], {'year': 2026, 'month': 1, 'day': 16});
     });
 
     test('dateRange() builds POST dailyRollUp with exclusive civil end', () {
@@ -31,8 +31,8 @@ void main() {
       final range = (url.body!['range'] as Map<String, dynamic>);
       expect((range['start'] as Map)['date'],
           {'year': 2026, 'month': 1, 'day': 1});
-      expect((range['end'] as Map)['date'],
-          {'year': 2026, 'month': 2, 'day': 1});
+      expect(
+          (range['end'] as Map)['date'], {'year': 2026, 'month': 2, 'day': 1});
     });
 
     test('intraday() builds GET list URL with filter expression', () {

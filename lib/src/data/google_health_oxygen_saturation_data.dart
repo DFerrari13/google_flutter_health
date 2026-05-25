@@ -22,8 +22,7 @@ class GoogleHealthOxygenSaturationData {
     this.percentageMax,
   });
 
-  factory GoogleHealthOxygenSaturationData.fromJson(
-      Map<String, dynamic> json) {
+  factory GoogleHealthOxygenSaturationData.fromJson(Map<String, dynamic> json) {
     final field = json['dailyOxygenSaturation'];
     final o = field is Map<String, dynamic> ? field : const <String, dynamic>{};
 
@@ -43,10 +42,8 @@ class GoogleHealthOxygenSaturationData {
       percentageAvg: parseNumber(
         o['percentageAvg'] ?? o['spo2PercentageAvg'] ?? o['percentage'],
       ),
-      percentageMin:
-          parseNumber(o['percentageMin'] ?? o['spo2PercentageMin']),
-      percentageMax:
-          parseNumber(o['percentageMax'] ?? o['spo2PercentageMax']),
+      percentageMin: parseNumber(o['percentageMin'] ?? o['spo2PercentageMin']),
+      percentageMax: parseNumber(o['percentageMax'] ?? o['spo2PercentageMax']),
     );
   }
 

@@ -15,7 +15,7 @@ void main() {
       );
       expect(
         url.uri.queryParameters['filter'],
-        contains('exercise.interval.start_time'),
+        contains('exercise.interval.civil_start_time'),
       );
     });
   });

@@ -3,7 +3,17 @@ import 'package:google_flutter_health/google_flutter_health.dart';
 
 void main() {
   group('GoogleHealthOxygenSaturationAPIURL', () {
-    test('dateRange() builds GET list URL with date filter', () {
+    test('day() builds GET list URL without filter', () {
+      final url = GoogleHealthOxygenSaturationAPIURL.day(date: DateTime(2026, 1, 1));
+      expect(url.method, GoogleHealthRequestMethod.get);
+      expect(
+        url.uri.path,
+        '/v4/users/me/dataTypes/daily-oxygen-saturation/dataPoints',
+      );
+      expect(url.uri.queryParameters['filter'], isNull);
+    });
+
+    test('dateRange() builds GET list URL without filter', () {
       final url = GoogleHealthOxygenSaturationAPIURL.dateRange(
         startDate: DateTime(2026, 1, 1),
         endDate: DateTime(2026, 1, 7),
@@ -13,10 +23,7 @@ void main() {
         url.uri.path,
         '/v4/users/me/dataTypes/daily-oxygen-saturation/dataPoints',
       );
-      expect(
-        url.uri.queryParameters['filter'],
-        contains('daily_oxygen_saturation'),
-      );
+      expect(url.uri.queryParameters['filter'], isNull);
     });
   });
 }

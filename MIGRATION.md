@@ -402,6 +402,8 @@ transparently. See [Key differences — credentials must be re-persisted](#1-acc
 | `FitbitSpO2DataManager` | `GoogleHealthOxygenSaturationDataManager` | Field renamed: see below |
 | `FitbitBodyWeightDataManager` | `GoogleHealthWeightDataManager` | No `day()` builder |
 | `FitbitActivityDataManager` | `GoogleHealthExerciseDataManager` | Uses `startTime`/`endTime` |
+| `FitbitBreathingRateDataManager` | `GoogleHealthBreathingRateDataManager` | Field renamed: `value` → `breathsPerMinuteAvg` |
+| `FitbitTemperatureSkinDataManager` | `GoogleHealthSkinTemperatureDataManager` | **Semantic change:** Fitbit returned an absolute °C reading; Google Health returns a delta (°C) versus the user's personal baseline. Field renamed: `value` → `nightlyRelativeCelsius` |
 
 ---
 

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:http/http.dart' as http;
 
 import '../connectors/google_health_credentials.dart';
@@ -43,12 +44,18 @@ class GoogleHealthProfileDataManager
       headers: headers,
     );
     checkResponse(profileResponse);
+    if (kDebugMode) {
+      debugPrint('[GoogleHealth] profile → ${profileResponse.body}');
+    }
 
     final settingsResponse = await httpClient.get(
       GoogleHealthProfileAPIURL.settings.uri,
       headers: headers,
     );
     checkResponse(settingsResponse);
+    if (kDebugMode) {
+      debugPrint('[GoogleHealth] settings → ${settingsResponse.body}');
+    }
 
     final profileJson = _decode(profileResponse);
     final settingsJson = _decode(settingsResponse);
