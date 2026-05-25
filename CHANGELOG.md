@@ -1,3 +1,9 @@
+## 0.5.1
+
+### Changed
+
+- Removed internal publishing guidelines from README.
+
 ## 0.5.0
 
 ### Fixed
