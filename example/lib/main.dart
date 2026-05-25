@@ -79,9 +79,9 @@ class _HomePageState extends State<HomePage> {
       _auth.session.addListener(_onSessionChanged);
       // Restore identity if a previous session was loaded from storage.
       if (_auth.session.isAuthenticated) {
-        final account =
-            await GoogleSignIn.instance.attemptLightweightAuthentication()
-                ?.catchError((_) => null);
+        final account = await GoogleSignIn.instance
+            .attemptLightweightAuthentication()
+            ?.catchError((_) => null);
         if (mounted && account != null) {
           setState(() {
             _googleUserId = account.id;
@@ -271,10 +271,10 @@ class _HomePageState extends State<HomePage> {
       ).fetch(GoogleHealthRestingHeartRateAPIURL.day(date: today));
       _auth.session.updateCredentials(rhrResult.credentials);
       for (final d in rhrResult.data) {
-        debugPrint('[DEBUG] rhr point: start=${d.startTime} bpm=${d.beatsPerMinute}');
+        //debugPrint('[DEBUG] rhr point: start=${d.startTime} bpm=${d.beatsPerMinute}');
       }
-      final rhr = _pickToday(rhrResult.data, today, (d) => d.startTime)
-          ?.beatsPerMinute;
+      final rhr =
+          _pickToday(rhrResult.data, today, (d) => d.startTime)?.beatsPerMinute;
       debugPrint('[DEBUG] resting heart rate bpm (today): $rhr');
       setState(() => _restingHeartRate = rhr);
 
@@ -286,10 +286,10 @@ class _HomePageState extends State<HomePage> {
       ).fetch(GoogleHealthOxygenSaturationAPIURL.day(date: today));
       _auth.session.updateCredentials(spo2Result.credentials);
       for (final d in spo2Result.data) {
-        debugPrint('[DEBUG] spo2 point: start=${d.startTime} avg=${d.percentageAvg}');
+        //debugPrint('[DEBUG] spo2 point: start=${d.startTime} avg=${d.percentageAvg}');
       }
-      final spo2 = _pickToday(spo2Result.data, today, (d) => d.startTime)
-          ?.percentageAvg;
+      final spo2 =
+          _pickToday(spo2Result.data, today, (d) => d.startTime)?.percentageAvg;
       debugPrint('[DEBUG] SpO2 avg % (today): $spo2');
       setState(() => _spo2Avg = spo2);
 
@@ -301,7 +301,7 @@ class _HomePageState extends State<HomePage> {
       ).fetch(GoogleHealthHrvAPIURL.day(date: today));
       _auth.session.updateCredentials(hrvResult.credentials);
       for (final d in hrvResult.data) {
-        debugPrint('[DEBUG] hrv point: start=${d.startTime} rmssd=${d.rmssd}');
+        //debugPrint('[DEBUG] hrv point: start=${d.startTime} rmssd=${d.rmssd}');
       }
       final hrv = _pickToday(hrvResult.data, today, (d) => d.startTime)?.rmssd;
       debugPrint('[DEBUG] HRV rmssd ms (today): $hrv');
@@ -346,7 +346,7 @@ class _HomePageState extends State<HomePage> {
       ).fetch(GoogleHealthBreathingRateAPIURL.day(date: today));
       _auth.session.updateCredentials(brResult.credentials);
       for (final d in brResult.data) {
-        debugPrint('[DEBUG] br point: start=${d.startTime} avg=${d.breathsPerMinuteAvg}');
+        //debugPrint('[DEBUG] br point: start=${d.startTime} avg=${d.breathsPerMinuteAvg}');
       }
       final br = _pickToday(brResult.data, today, (d) => d.startTime)
           ?.breathsPerMinuteAvg;
@@ -361,7 +361,7 @@ class _HomePageState extends State<HomePage> {
       ).fetch(GoogleHealthSkinTemperatureAPIURL.day(date: today));
       _auth.session.updateCredentials(stResult.credentials);
       for (final d in stResult.data) {
-        debugPrint('[DEBUG] skin temp point: start=${d.startTime} val=${d.nightlyRelativeCelsius}');
+        //debugPrint('[DEBUG] skin temp point: start=${d.startTime} val=${d.nightlyRelativeCelsius}');
       }
       final st = _pickToday(stResult.data, today, (d) => d.startTime)
           ?.nightlyRelativeCelsius;
@@ -474,14 +474,14 @@ class _HomePageState extends State<HomePage> {
                     color: Colors.teal.shade50,
                     children: [
                       _Row('Age', _profile?.age?.toString() ?? 'null'),
-                      _Row(
-                          'Member since', _profile?.membershipStartDate ?? 'null'),
+                      _Row('Member since',
+                          _profile?.membershipStartDate ?? 'null'),
                       _Row('Time zone', _profile?.timeZone ?? 'null'),
                       _Row('Locale', _profile?.languageLocale ?? 'null'),
                       _Row('Distance unit', _profile?.distanceUnit ?? 'null'),
                       _Row('Weight unit', _profile?.weightUnit ?? 'null'),
-                      _Row(
-                          'Temperature unit', _profile?.temperatureUnit ?? 'null'),
+                      _Row('Temperature unit',
+                          _profile?.temperatureUnit ?? 'null'),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -507,7 +507,8 @@ class _HomePageState extends State<HomePage> {
                           _azmTotalMinutes != null
                               ? '${_azmTotalMinutes!.toStringAsFixed(1)} min'
                               : 'null'),
-                      _Row('Latest exercise (7d)', _latestExerciseType ?? 'null'),
+                      _Row('Latest exercise (7d)',
+                          _latestExerciseType ?? 'null'),
                     ],
                   ),
                   const SizedBox(height: 12),
