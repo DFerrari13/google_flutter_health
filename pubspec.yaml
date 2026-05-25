@@ -6,7 +6,6 @@ version: 0.5.0
 homepage: https://github.com/DFerrari13/google_flutter_health
 repository: https://github.com/DFerrari13/google_flutter_health
 issue_tracker: https://github.com/DFerrari13/google_flutter_health/issues
-publish_to: "https://pub.dev"
 
 topics:
   - health
