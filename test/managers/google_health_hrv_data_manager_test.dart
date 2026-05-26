@@ -20,20 +20,24 @@ void main() {
       );
     });
 
-    test('fetch() parses HRV data points', () async {
+    test('fetch() parses HRV data using real API field names', () async {
       final body = jsonEncode({
         'dataPoints': [
           {
+            'name':
+                'users/me/dataTypes/daily-heart-rate-variability/dataPoints/x',
             'dailyHeartRateVariability': {
-              'rmssd': 38.0,
-              'coverage': 0.85,
+              'date': {'year': 2025, 'month': 6, 'day': 12},
+              'averageHeartRateVariabilityMilliseconds': 38.0,
+              'nonRemHeartRateBeatsPerMinute': '60',
+              'entropy': 1.1,
+              'deepSleepRootMeanSquareOfSuccessiveDifferencesMilliseconds':
+                  41.0,
             },
           },
         ],
       });
-      final client = MockClient((request) async {
-        return http.Response(body, 200);
-      });
+      final client = MockClient((_) async => http.Response(body, 200));
       final manager = GoogleHealthHrvDataManager(
         credentials: credentials,
         clientID: 'client_id',
@@ -41,10 +45,31 @@ void main() {
         httpClient: client,
       );
       final result = await manager.fetch(
-        GoogleHealthHrvAPIURL.day(date: DateTime(2026, 1, 15)),
+        GoogleHealthHrvAPIURL.day(date: DateTime(2025, 6, 12)),
       );
-      expect(result.data.first.rmssd, 38.0);
-      expect(result.data.first.coverage, 0.85);
+      expect(result.data, hasLength(1));
+      final point = result.data.first;
+      expect(point.startTime, DateTime(2025, 6, 12));
+      expect(point.rmssd, 38.0);
+      expect(point.nonRemBpm, 60);
+      expect(point.entropy, 1.1);
+      expect(point.deepSleepRmssdMs, 41.0);
+    });
+
+    test('fetch() returns empty list when dataPoints absent', () async {
+      final client = MockClient(
+        (_) async => http.Response(jsonEncode(<String, dynamic>{}), 200),
+      );
+      final manager = GoogleHealthHrvDataManager(
+        credentials: credentials,
+        clientID: 'client_id',
+        clientSecret: 'client_secret',
+        httpClient: client,
+      );
+      final result = await manager.fetch(
+        GoogleHealthHrvAPIURL.day(date: DateTime(2025, 6, 12)),
+      );
+      expect(result.data, isEmpty);
     });
   });
 }

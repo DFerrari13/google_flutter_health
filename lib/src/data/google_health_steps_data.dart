@@ -1,80 +1,46 @@
 import '_parsing_helpers.dart';
 
-/// A single step count data point from the Google Health API.
+/// A single daily step-count rollup from the Google Health `steps:rollUp` API.
 ///
-/// When using a `dailyRollUp` request, each instance represents the total
-/// step count for one civil day. When using a `list` (intraday) request, each
-/// instance represents an individual step event recorded by the device.
+/// Each instance represents one UTC calendar-day window. [countSum] is the
+/// total step count for that day — equivalent to the sum of every intraday
+/// interval returned by the `steps/dataPoints` list endpoint.
+///
+/// The [startTime] and [endTime] mark the UTC midnight boundaries of the
+/// rollup window (e.g. 2024-12-28T00:00:00Z → 2024-12-29T00:00:00Z).
 class GoogleHealthStepsData {
-  /// Resource name of the data point, e.g.
-  /// `users/me/dataTypes/steps/dataPoints/{id}`.
-  ///
-  /// Only present on responses from the `list` endpoint.
-  final String? name;
-
-  /// Start of this data point's interval in local time.
-  ///
-  /// For `dailyRollUp` results this is `civilStartTime`. For `list` results
-  /// this is `steps.interval.startTime`.
   final DateTime? startTime;
-
-  /// End of this data point's interval in local time.
   final DateTime? endTime;
 
-  /// Step count for this data point.
-  ///
-  /// For `dailyRollUp` responses this is the daily `countSum` aggregate.
-  /// For `list` responses this is the raw `count` for a single interval.
-  final int? count;
+  /// Total step count for the rollup window (int64-encoded string in the API).
+  final int? countSum;
 
   const GoogleHealthStepsData({
-    this.name,
     this.startTime,
     this.endTime,
-    this.count,
+    this.countSum,
   });
 
-  /// Creates a [GoogleHealthStepsData] from a raw API JSON map.
-  ///
-  /// Auto-detects whether the JSON is a `dailyRollUp` data point (has
-  /// `civilStartTime`) or a raw `list` data point (has `steps.interval`).
   factory GoogleHealthStepsData.fromJson(Map<String, dynamic> json) {
     final stepsField = json['steps'];
     final steps = stepsField is Map<String, dynamic>
         ? stepsField
         : const <String, dynamic>{};
-
-    final hasCivil = json.containsKey('civilStartTime');
-    if (hasCivil) {
-      return GoogleHealthStepsData(
-        name: json['name'] as String?,
-        startTime: parseCivilDateTime(json['civilStartTime']),
-        endTime: parseCivilDateTime(json['civilEndTime']),
-        count: parseInt64(steps['countSum'] ?? steps['count']),
-      );
-    }
-
-    final interval = steps['interval'];
-    final intervalMap =
-        interval is Map<String, dynamic> ? interval : const <String, dynamic>{};
     return GoogleHealthStepsData(
-      name: json['name'] as String?,
-      startTime: parsePhysicalTime(intervalMap['startTime']),
-      endTime: parsePhysicalTime(intervalMap['endTime']),
-      count: parseInt64(steps['count']),
+      startTime: parsePhysicalTime(json['startTime']),
+      endTime: parsePhysicalTime(json['endTime']),
+      countSum: parseInt64(steps['countSum']),
     );
   }
 
-  /// Serialises this data point to a JSON-compatible map.
   Map<String, dynamic> toJson() => {
-        'name': name,
         'startTime': startTime?.toUtc().toIso8601String(),
         'endTime': endTime?.toUtc().toIso8601String(),
-        'count': count,
+        'countSum': countSum,
       };
 
   @override
   String toString() =>
-      'GoogleHealthStepsData(name: $name, startTime: $startTime, '
-      'endTime: $endTime, count: $count)';
+      'GoogleHealthStepsData(startTime: $startTime, endTime: $endTime, '
+      'countSum: $countSum)';
 }

@@ -3,9 +3,9 @@ import 'google_health_data_manager.dart';
 
 /// Fetches sleep sessions from the Google Health API.
 ///
-/// Requires the `googlehealth.sleep.readonly` scope. Sessions are flattened
-/// into one [GoogleHealthSleepData] per stage segment; sessions without a
-/// stage breakdown yield a single segment covering the whole session.
+/// Requires the `googlehealth.sleep.readonly` scope.
+/// Returns one [GoogleHealthSleepData] per session. NAP sessions are filtered
+/// out — only `MAIN_SLEEP` and `SLEEP_TYPE_UNSPECIFIED` sessions are returned.
 class GoogleHealthSleepDataManager
     extends GoogleHealthDataManager<GoogleHealthSleepData> {
   GoogleHealthSleepDataManager({
@@ -21,7 +21,8 @@ class GoogleHealthSleepDataManager
     if (raw is! List) return const [];
     return raw
         .whereType<Map<String, dynamic>>()
-        .expand(GoogleHealthSleepData.listFromJson)
+        .map(GoogleHealthSleepData.fromJson)
+        .where((s) => s.sleepType != 'NAP')
         .toList(growable: false);
   }
 }

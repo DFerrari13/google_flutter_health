@@ -2,69 +2,78 @@ import '_parsing_helpers.dart';
 
 /// A single daily heart rate variability (HRV) data point from the Google
 /// Health API.
+///
+/// The `dailyHeartRateVariability` sub-object uses:
+///   `date`                                                    → [startTime]
+///   `averageHeartRateVariabilityMilliseconds`                 → [rmssd]
+///   `nonRemHeartRateBeatsPerMinute`                           → [nonRemBpm]
+///   `entropy`                                                 → [entropy]
+///   `deepSleepRootMeanSquareOfSuccessiveDifferencesMilliseconds` → [deepSleepRmssdMs]
 class GoogleHealthHrvData {
   final String? name;
   final DateTime? startTime;
-  final DateTime? endTime;
 
-  /// Root mean square of successive differences, in milliseconds.
+  /// Average HRV during sleep, in milliseconds (RMSSD proxy).
   final double? rmssd;
 
-  /// Fraction of the day with valid HRV data, between 0.0 and 1.0.
-  final double? coverage;
+  /// Average heart rate during non-REM sleep, in beats per minute.
+  final int? nonRemBpm;
 
-  /// High-frequency band power, in ms^2.
-  final double? hfPower;
+  /// Entropy of the HRV signal.
+  final double? entropy;
 
-  /// Low-frequency band power, in ms^2.
-  final double? lfPower;
+  /// RMSSD computed only during deep sleep, in milliseconds.
+  final double? deepSleepRmssdMs;
 
   const GoogleHealthHrvData({
     this.name,
     this.startTime,
-    this.endTime,
     this.rmssd,
-    this.coverage,
-    this.hfPower,
-    this.lfPower,
+    this.nonRemBpm,
+    this.entropy,
+    this.deepSleepRmssdMs,
   });
 
   factory GoogleHealthHrvData.fromJson(Map<String, dynamic> json) {
     final field = json['dailyHeartRateVariability'];
     final h = field is Map<String, dynamic> ? field : const <String, dynamic>{};
 
-    DateTime? start;
-    DateTime? end;
-    final civilField = h['civilDateTime'] ?? h['interval'];
-    if (civilField is Map<String, dynamic>) {
-      start = parseCivilDateTime(civilField['startTime']) ??
-          parsePhysicalTime(civilField['startTime']);
-      end = parseCivilDateTime(civilField['endTime']) ??
-          parsePhysicalTime(civilField['endTime']);
+    DateTime? date;
+    final dateObj = h['date'];
+    if (dateObj is Map) {
+      final y = (dateObj['year'] as num?)?.toInt();
+      final mo = (dateObj['month'] as num?)?.toInt();
+      final d = (dateObj['day'] as num?)?.toInt();
+      if (y != null && mo != null && d != null) date = DateTime(y, mo, d);
     }
+
     return GoogleHealthHrvData(
       name: json['name'] as String?,
-      startTime: start ?? parseCivilDateTime(json['civilStartTime']),
-      endTime: end ?? parseCivilDateTime(json['civilEndTime']),
-      rmssd: parseNumber(h['rmssd']),
-      coverage: parseNumber(h['coverage']),
-      hfPower: parseNumber(h['hfPower'] ?? h['highFrequencyPower']),
-      lfPower: parseNumber(h['lfPower'] ?? h['lowFrequencyPower']),
+      startTime: date,
+      rmssd: parseNumber(h['averageHeartRateVariabilityMilliseconds']),
+      nonRemBpm: parseInt64(h['nonRemHeartRateBeatsPerMinute']),
+      entropy: parseNumber(h['entropy']),
+      deepSleepRmssdMs: parseNumber(
+        h['deepSleepRootMeanSquareOfSuccessiveDifferencesMilliseconds'],
+      ),
     );
   }
 
   Map<String, dynamic> toJson() => {
         'name': name,
-        'startTime': startTime?.toUtc().toIso8601String(),
-        'endTime': endTime?.toUtc().toIso8601String(),
+        'date': startTime != null
+            ? '${startTime!.year.toString().padLeft(4, '0')}-'
+                '${startTime!.month.toString().padLeft(2, '0')}-'
+                '${startTime!.day.toString().padLeft(2, '0')}'
+            : null,
         'rmssd': rmssd,
-        'coverage': coverage,
-        'hfPower': hfPower,
-        'lfPower': lfPower,
+        'nonRemBpm': nonRemBpm,
+        'entropy': entropy,
+        'deepSleepRmssdMs': deepSleepRmssdMs,
       };
 
   @override
-  String toString() => 'GoogleHealthHrvData(name: $name, '
-      'startTime: $startTime, endTime: $endTime, rmssd: $rmssd, '
-      'coverage: $coverage, hfPower: $hfPower, lfPower: $lfPower)';
+  String toString() => 'GoogleHealthHrvData(name: $name, date: $startTime, '
+      'rmssd: $rmssd, nonRemBpm: $nonRemBpm, entropy: $entropy, '
+      'deepSleepRmssdMs: $deepSleepRmssdMs)';
 }

@@ -1,63 +1,63 @@
 import '_parsing_helpers.dart';
 
-/// A single nightly skin temperature variation data point from the Google
-/// Health API.
-///
-/// Skin temperature is reported as a relative variation in °C from the user's
-/// personal baseline computed from prior nights. Positive values mean the
-/// skin was warmer than baseline during the sleep window; negative values
-/// mean cooler. Not an absolute body-temperature reading.
+/// A single nightly sleep temperature derivation data point from the Google
+/// Health API (`daily-sleep-temperature-derivations`).
 class GoogleHealthSkinTemperatureData {
   final String? name;
   final DateTime? startTime;
-  final DateTime? endTime;
-  final double? nightlyRelativeCelsius;
+
+  /// Nightly temperature in °C (`nightlyTemperatureCelsius`).
+  final double? nightlyCelsius;
+
+  /// Personal baseline temperature in °C (`baselineTemperatureCelsius`).
+  final double? baselineCelsius;
+
+  /// 30-day relative nightly std-dev in °C
+  /// (`relativeNightlyStddev30dCelsius`).
+  final double? relativeStddev30dCelsius;
 
   const GoogleHealthSkinTemperatureData({
     this.name,
     this.startTime,
-    this.endTime,
-    this.nightlyRelativeCelsius,
+    this.nightlyCelsius,
+    this.baselineCelsius,
+    this.relativeStddev30dCelsius,
   });
 
   factory GoogleHealthSkinTemperatureData.fromJson(Map<String, dynamic> json) {
-    final field = json['dailySleepTemperatureDerivations'] ??
-        json['dailySkinTemperatureVariation'] ??
-        json['dailySkinTemperature'] ??
-        json['nightlySkinTemperature'];
+    final field = json['dailySleepTemperatureDerivations'];
     final o = field is Map<String, dynamic> ? field : const <String, dynamic>{};
 
-    DateTime? start;
-    DateTime? end;
-    final civilField = o['civilDateTime'] ?? o['interval'];
-    if (civilField is Map<String, dynamic>) {
-      start = parseCivilDateTime(civilField['startTime']) ??
-          parsePhysicalTime(civilField['startTime']);
-      end = parseCivilDateTime(civilField['endTime']) ??
-          parsePhysicalTime(civilField['endTime']);
+    DateTime? date;
+    final dateObj = o['date'];
+    if (dateObj is Map) {
+      final y = (dateObj['year'] as num?)?.toInt();
+      final mo = (dateObj['month'] as num?)?.toInt();
+      final d = (dateObj['day'] as num?)?.toInt();
+      if (y != null && mo != null && d != null) date = DateTime(y, mo, d);
     }
+
     return GoogleHealthSkinTemperatureData(
       name: json['name'] as String?,
-      startTime: start ?? parseCivilDateTime(json['civilStartTime']),
-      endTime: end ?? parseCivilDateTime(json['civilEndTime']),
-      nightlyRelativeCelsius: parseNumber(
-        o['nightlyRelativeCelsius'] ??
-            o['nightlyRelative'] ??
-            o['variationCelsius'] ??
-            o['value'],
-      ),
+      startTime: date,
+      nightlyCelsius: parseNumber(o['nightlyTemperatureCelsius']),
+      baselineCelsius: parseNumber(o['baselineTemperatureCelsius']),
+      relativeStddev30dCelsius:
+          parseNumber(o['relativeNightlyStddev30dCelsius']),
     );
   }
 
   Map<String, dynamic> toJson() => {
         'name': name,
-        'startTime': startTime?.toUtc().toIso8601String(),
-        'endTime': endTime?.toUtc().toIso8601String(),
-        'nightlyRelativeCelsius': nightlyRelativeCelsius,
+        'startTime': startTime?.toIso8601String(),
+        'nightlyCelsius': nightlyCelsius,
+        'baselineCelsius': baselineCelsius,
+        'relativeStddev30dCelsius': relativeStddev30dCelsius,
       };
 
   @override
-  String toString() => 'GoogleHealthSkinTemperatureData(name: $name, '
-      'startTime: $startTime, endTime: $endTime, '
-      'nightlyRelativeCelsius: $nightlyRelativeCelsius)';
+  String toString() => 'GoogleHealthSkinTemperatureData('
+      'name: $name, startTime: $startTime, '
+      'nightlyCelsius: $nightlyCelsius, baselineCelsius: $baselineCelsius, '
+      'relativeStddev30dCelsius: $relativeStddev30dCelsius)';
 }

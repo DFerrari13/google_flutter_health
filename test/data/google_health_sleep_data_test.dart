@@ -1,66 +1,81 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_flutter_health/google_flutter_health.dart';
 
-void main() {
-  group('GoogleHealthSleepData', () {
-    test('listFromJson flattens stages into segments', () {
-      final segments = GoogleHealthSleepData.listFromJson(<String, dynamic>{
-        'name': 'users/me/dataTypes/sleep/dataPoints/session1',
-        'sleep': {
-          'interval': {
-            'startTime': '2026-01-15T22:00:00Z',
-            'endTime': '2026-01-16T06:00:00Z',
-          },
-          'type': 'STAGES',
-          'stages': [
-            {
-              'type': 'LIGHT',
-              'interval': {
-                'startTime': '2026-01-15T22:00:00Z',
-                'endTime': '2026-01-16T01:00:00Z',
-              },
-            },
-            {
-              'type': 'DEEP',
-              'interval': {
-                'startTime': '2026-01-16T01:00:00Z',
-                'endTime': '2026-01-16T03:00:00Z',
-              },
-            },
+Map<String, dynamic> _fullSession({String type = 'MAIN_SLEEP'}) => {
+      'name': 'users/me/dataTypes/sleep/dataPoints/s1',
+      'sleep': {
+        'interval': {
+          'startTime': '2026-05-25T22:00:00Z',
+          'endTime': '2026-05-26T06:00:00Z',
+        },
+        'type': type,
+        'summary': {
+          'minutesAsleep': '440',
+          'minutesAwake': '40',
+          'minutesInSleepPeriod': '480',
+          'stagesSummary': [
+            {'type': 'AWAKE', 'minutes': '40', 'count': '8'},
+            {'type': 'LIGHT', 'minutes': '200', 'count': '12'},
+            {'type': 'DEEP', 'minutes': '120', 'count': '4'},
+            {'type': 'REM', 'minutes': '120', 'count': '5'},
           ],
         },
-      });
+      },
+    };
 
-      expect(segments, hasLength(2));
-      expect(segments.first.stage, 'LIGHT');
-      expect(segments.first.duration, const Duration(hours: 3));
-      expect(segments[1].stage, 'DEEP');
-      expect(segments[1].duration, const Duration(hours: 2));
-      expect(segments.first.sessionType, 'STAGES');
+void main() {
+  group('GoogleHealthSleepData', () {
+    test('fromJson parses interval, type, summary totals, and stage minutes',
+        () {
+      final d = GoogleHealthSleepData.fromJson(_fullSession());
+      expect(d.startTime, DateTime.parse('2026-05-25T22:00:00Z').toLocal());
+      expect(d.endTime, DateTime.parse('2026-05-26T06:00:00Z').toLocal());
+      expect(d.sleepType, 'MAIN_SLEEP');
+      expect(d.minutesAsleep, 440);
+      expect(d.minutesAwake, 40);
+      expect(d.minutesInSleepPeriod, 480);
+      expect(d.awakeMinutes, 40);
+      expect(d.lightMinutes, 200);
+      expect(d.deepMinutes, 120);
+      expect(d.remMinutes, 120);
+      expect(d.awakeCount, 8);
+      expect(d.lightCount, 12);
+      expect(d.deepCount, 4);
+      expect(d.remCount, 5);
     });
 
-    test('listFromJson returns whole session when stages are absent', () {
-      final segments = GoogleHealthSleepData.listFromJson(<String, dynamic>{
-        'name': 'users/me/dataTypes/sleep/dataPoints/session2',
+    test('duration getter returns endTime − startTime', () {
+      final d = GoogleHealthSleepData.fromJson(_fullSession());
+      expect(d.duration, const Duration(hours: 8));
+    });
+
+    test('fromJson handles missing summary gracefully', () {
+      final d = GoogleHealthSleepData.fromJson({
         'sleep': {
           'interval': {
-            'startTime': '2026-01-15T22:00:00Z',
-            'endTime': '2026-01-16T06:00:00Z',
+            'startTime': '2026-05-25T22:00:00Z',
+            'endTime': '2026-05-26T06:00:00Z',
           },
-          'type': 'CLASSIC',
+          'type': 'MAIN_SLEEP',
         },
       });
-      expect(segments, hasLength(1));
-      expect(segments.first.sessionType, 'CLASSIC');
-      expect(segments.first.stage, isNull);
-      expect(segments.first.duration, const Duration(hours: 8));
+      expect(d.minutesAsleep, isNull);
+      expect(d.deepMinutes, isNull);
     });
 
-    test('duration returns null when either bound is missing', () {
-      final data = GoogleHealthSleepData(
-        startTime: DateTime.utc(2026, 1, 15, 22),
-      );
-      expect(data.duration, isNull);
+    test('fromJson handles missing fields gracefully', () {
+      final d = GoogleHealthSleepData.fromJson(<String, dynamic>{});
+      expect(d.startTime, isNull);
+      expect(d.sleepType, isNull);
+      expect(d.duration, isNull);
+    });
+
+    test('toJson round-trips stage minutes', () {
+      final d = GoogleHealthSleepData.fromJson(_fullSession());
+      final json = d.toJson();
+      expect(json['deepMinutes'], 120);
+      expect(json['remMinutes'], 120);
+      expect(json['sleepType'], 'MAIN_SLEEP');
     });
   });
 }

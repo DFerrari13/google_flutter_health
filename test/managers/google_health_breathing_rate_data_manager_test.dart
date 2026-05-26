@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
-  group('GoogleHealthRestingHeartRateDataManager', () {
+  group('GoogleHealthBreathingRateDataManager', () {
     late GoogleHealthCredentials credentials;
 
     setUp(() {
@@ -24,51 +24,42 @@ void main() {
       final body = jsonEncode({
         'dataPoints': [
           {
-            'name':
-                'users/me/dataTypes/daily-resting-heart-rate/dataPoints/abc',
-            'dataSource': {
-              'platform': 'FITBIT',
-              'device': {'displayName': 'Charge 6'},
-            },
-            'dailyRestingHeartRate': {
-              'date': {'year': 2026, 'month': 5, 'day': 26},
-              'beatsPerMinute': '62',
-              'dailyRestingHeartRateMetadata': {
-                'calculationMethod': 'WITH_SLEEP',
-              },
+            'name': 'users/me/dataTypes/daily-respiratory-rate/dataPoints/abc',
+            'dailyRespiratoryRate': {
+              'date': {'year': 2025, 'month': 6, 'day': 12},
+              'breathsPerMinute': 14.5,
             },
           },
         ],
       });
       final client = MockClient((_) async => http.Response(body, 200));
-      final manager = GoogleHealthRestingHeartRateDataManager(
+      final manager = GoogleHealthBreathingRateDataManager(
         credentials: credentials,
         clientID: 'client_id',
         clientSecret: 'client_secret',
         httpClient: client,
       );
       final result = await manager.fetch(
-        GoogleHealthRestingHeartRateAPIURL.day(date: DateTime(2026, 5, 26)),
+        GoogleHealthBreathingRateAPIURL.day(date: DateTime(2025, 6, 12)),
       );
       expect(result.data, hasLength(1));
       final point = result.data.first;
-      expect(point.startTime, DateTime(2026, 5, 26));
-      expect(point.beatsPerMinute, 62.0);
-      expect(point.calculationMethod, 'WITH_SLEEP');
+      expect(point.startTime, DateTime(2025, 6, 12));
+      expect(point.breathsPerMinute, closeTo(14.5, 0.001));
     });
 
     test('fetch() returns empty list when dataPoints absent', () async {
       final client = MockClient(
         (_) async => http.Response(jsonEncode(<String, dynamic>{}), 200),
       );
-      final manager = GoogleHealthRestingHeartRateDataManager(
+      final manager = GoogleHealthBreathingRateDataManager(
         credentials: credentials,
         clientID: 'client_id',
         clientSecret: 'client_secret',
         httpClient: client,
       );
       final result = await manager.fetch(
-        GoogleHealthRestingHeartRateAPIURL.day(date: DateTime(2026, 5, 26)),
+        GoogleHealthBreathingRateAPIURL.day(date: DateTime(2025, 6, 12)),
       );
       expect(result.data, isEmpty);
     });

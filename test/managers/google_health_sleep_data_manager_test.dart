@@ -5,6 +5,27 @@ import 'package:google_flutter_health/google_flutter_health.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+Map<String, dynamic> _session(String type, String name) => {
+      'name': name,
+      'sleep': {
+        'interval': {
+          'startTime': '2026-05-25T22:00:00Z',
+          'endTime': '2026-05-26T06:00:00Z',
+        },
+        'type': type,
+        'summary': {
+          'minutesAsleep': '440',
+          'minutesAwake': '40',
+          'stagesSummary': [
+            {'type': 'DEEP', 'minutes': '120', 'count': '4'},
+            {'type': 'REM', 'minutes': '120', 'count': '5'},
+            {'type': 'LIGHT', 'minutes': '200', 'count': '12'},
+            {'type': 'AWAKE', 'minutes': '40', 'count': '8'},
+          ],
+        },
+      },
+    };
+
 void main() {
   group('GoogleHealthSleepDataManager', () {
     late GoogleHealthCredentials credentials;
@@ -20,62 +41,52 @@ void main() {
       );
     });
 
-    test('fetch() flattens session stages into segments', () async {
+    test('fetch() parses main sleep session with summary and stages', () async {
       final body = jsonEncode({
         'dataPoints': [
-          {
-            'name': 'users/me/dataTypes/sleep/dataPoints/s1',
-            'sleep': {
-              'interval': {
-                'startTime': '2026-01-15T22:00:00Z',
-                'endTime': '2026-01-16T06:00:00Z',
-              },
-              'type': 'STAGES',
-              'stages': [
-                {
-                  'type': 'LIGHT',
-                  'interval': {
-                    'startTime': '2026-01-15T22:00:00Z',
-                    'endTime': '2026-01-16T01:00:00Z',
-                  },
-                },
-                {
-                  'type': 'DEEP',
-                  'interval': {
-                    'startTime': '2026-01-16T01:00:00Z',
-                    'endTime': '2026-01-16T03:00:00Z',
-                  },
-                },
-              ],
-            },
-          },
+          _session('MAIN_SLEEP', 'users/me/dataTypes/sleep/dataPoints/s1')
         ],
       });
-
+      var endpointHit = false;
       final client = MockClient((request) async {
-        return http.Response(body, 200);
+        if (request.url.path == '/v4/users/me/dataTypes/sleep/dataPoints' &&
+            request.method == 'GET') {
+          endpointHit = true;
+          final filter = request.url.queryParameters['filter']!;
+          expect(filter, contains('sleep.interval.end_time'));
+          return http.Response(body, 200);
+        }
+        return http.Response('Not found', 404);
       });
-
       final manager = GoogleHealthSleepDataManager(
         credentials: credentials,
         clientID: 'client_id',
         clientSecret: 'client_secret',
         httpClient: client,
       );
-
       final result = await manager.fetch(
-        GoogleHealthSleepAPIURL.day(date: DateTime(2026, 1, 15)),
+        GoogleHealthSleepAPIURL.day(date: DateTime(2026, 5, 26)),
       );
-      expect(result.data, hasLength(2));
-      expect(result.data.first.stage, 'LIGHT');
-      expect(result.data[1].stage, 'DEEP');
-      expect(result.data[1].duration, const Duration(hours: 2));
+      expect(endpointHit, isTrue);
+      expect(result.data, hasLength(1));
+      final s = result.data.first;
+      expect(s.sleepType, 'MAIN_SLEEP');
+      expect(s.minutesAsleep, 440);
+      expect(s.deepMinutes, 120);
+      expect(s.remMinutes, 120);
+      expect(s.lightMinutes, 200);
+      expect(s.awakeMinutes, 40);
+      expect(s.duration, const Duration(hours: 8));
     });
 
-    test('fetch() returns empty list when dataPoints is missing', () async {
-      final client = MockClient((request) async {
-        return http.Response(jsonEncode({}), 200);
+    test('fetch() filters out NAP sessions', () async {
+      final body = jsonEncode({
+        'dataPoints': [
+          _session('MAIN_SLEEP', 'users/me/dataTypes/sleep/dataPoints/s1'),
+          _session('NAP', 'users/me/dataTypes/sleep/dataPoints/s2'),
+        ],
       });
+      final client = MockClient((_) async => http.Response(body, 200));
       final manager = GoogleHealthSleepDataManager(
         credentials: credentials,
         clientID: 'client_id',
@@ -83,7 +94,24 @@ void main() {
         httpClient: client,
       );
       final result = await manager.fetch(
-        GoogleHealthSleepAPIURL.day(date: DateTime(2026, 1, 15)),
+        GoogleHealthSleepAPIURL.day(date: DateTime(2026, 5, 26)),
+      );
+      expect(result.data, hasLength(1));
+      expect(result.data.first.sleepType, 'MAIN_SLEEP');
+    });
+
+    test('fetch() returns empty list when dataPoints absent', () async {
+      final client = MockClient(
+        (_) async => http.Response(jsonEncode(<String, dynamic>{}), 200),
+      );
+      final manager = GoogleHealthSleepDataManager(
+        credentials: credentials,
+        clientID: 'client_id',
+        clientSecret: 'client_secret',
+        httpClient: client,
+      );
+      final result = await manager.fetch(
+        GoogleHealthSleepAPIURL.day(date: DateTime(2026, 5, 26)),
       );
       expect(result.data, isEmpty);
     });

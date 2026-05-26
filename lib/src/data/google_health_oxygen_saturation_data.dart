@@ -3,62 +3,70 @@ import '_parsing_helpers.dart';
 /// A single daily oxygen saturation (SpO2) data point from the Google Health
 /// API.
 ///
-/// SpO2 is a Daily-aggregated metric. Each instance represents the average,
-/// minimum, and maximum SpO2 for one civil day.
+/// The `dailyOxygenSaturation` sub-object uses:
+///   `date`                       → [startTime]
+///   `averagePercentage`          → [percentageAvg]
+///   `lowerBoundPercentage`       → [percentageMin]
+///   `upperBoundPercentage`       → [percentageMax]
+///   `standardDeviationPercentage`→ [percentageStdDev] (optional)
 class GoogleHealthOxygenSaturationData {
   final String? name;
   final DateTime? startTime;
-  final DateTime? endTime;
   final double? percentageAvg;
   final double? percentageMin;
   final double? percentageMax;
+  final double? percentageStdDev;
 
   const GoogleHealthOxygenSaturationData({
     this.name,
     this.startTime,
-    this.endTime,
     this.percentageAvg,
     this.percentageMin,
     this.percentageMax,
+    this.percentageStdDev,
   });
 
   factory GoogleHealthOxygenSaturationData.fromJson(Map<String, dynamic> json) {
     final field = json['dailyOxygenSaturation'];
     final o = field is Map<String, dynamic> ? field : const <String, dynamic>{};
 
-    DateTime? start;
-    DateTime? end;
-    final civilField = o['civilDateTime'] ?? o['interval'];
-    if (civilField is Map<String, dynamic>) {
-      start = parseCivilDateTime(civilField['startTime']) ??
-          parsePhysicalTime(civilField['startTime']);
-      end = parseCivilDateTime(civilField['endTime']) ??
-          parsePhysicalTime(civilField['endTime']);
+    DateTime? date;
+    final dateObj = o['date'];
+    if (dateObj is Map) {
+      final y = (dateObj['year'] as num?)?.toInt();
+      final mo = (dateObj['month'] as num?)?.toInt();
+      final d = (dateObj['day'] as num?)?.toInt();
+      if (y != null && mo != null && d != null) {
+        date = DateTime(y, mo, d);
+      }
     }
+
     return GoogleHealthOxygenSaturationData(
       name: json['name'] as String?,
-      startTime: start ?? parseCivilDateTime(json['civilStartTime']),
-      endTime: end ?? parseCivilDateTime(json['civilEndTime']),
-      percentageAvg: parseNumber(
-        o['percentageAvg'] ?? o['spo2PercentageAvg'] ?? o['percentage'],
-      ),
-      percentageMin: parseNumber(o['percentageMin'] ?? o['spo2PercentageMin']),
-      percentageMax: parseNumber(o['percentageMax'] ?? o['spo2PercentageMax']),
+      startTime: date,
+      percentageAvg: parseNumber(o['averagePercentage']),
+      percentageMin: parseNumber(o['lowerBoundPercentage']),
+      percentageMax: parseNumber(o['upperBoundPercentage']),
+      percentageStdDev: parseNumber(o['standardDeviationPercentage']),
     );
   }
 
   Map<String, dynamic> toJson() => {
         'name': name,
-        'startTime': startTime?.toUtc().toIso8601String(),
-        'endTime': endTime?.toUtc().toIso8601String(),
+        'date': startTime != null
+            ? '${startTime!.year.toString().padLeft(4, '0')}-'
+                '${startTime!.month.toString().padLeft(2, '0')}-'
+                '${startTime!.day.toString().padLeft(2, '0')}'
+            : null,
         'percentageAvg': percentageAvg,
         'percentageMin': percentageMin,
         'percentageMax': percentageMax,
+        'percentageStdDev': percentageStdDev,
       };
 
   @override
-  String toString() => 'GoogleHealthOxygenSaturationData(name: $name, '
-      'startTime: $startTime, endTime: $endTime, '
+  String toString() => 'GoogleHealthOxygenSaturationData('
+      'name: $name, date: $startTime, '
       'percentageAvg: $percentageAvg, percentageMin: $percentageMin, '
-      'percentageMax: $percentageMax)';
+      'percentageMax: $percentageMax, percentageStdDev: $percentageStdDev)';
 }

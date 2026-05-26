@@ -1,3 +1,54 @@
+## 0.6.0
+
+### Breaking changes
+
+- **Steps** rewritten around the `steps:rollUp` POST endpoint. The previous
+  `count` field is gone — use `countSum` instead. Each rollup point covers one
+  calendar day (`windowSize: "86400s"`). The intraday factory has been removed
+  because the library now exposes only the daily aggregate.
+- **Removed data types:** `GoogleHealthHeartRate*`, `GoogleHealthDistance*`,
+  `GoogleHealthCalories*`, `GoogleHealthWeight*`, `GoogleHealthExercise*`,
+  `GoogleHealthActiveZoneMinutes*`. Real-world Google Health responses only
+  consistently populate the daily-aggregated metrics, so the scope of the
+  library has been focused on those.
+
+### Added
+
+- **Active Minutes** (`GoogleHealthActiveMinutesData{Manager,APIURL}`) — daily
+  rollup of non-sedentary time split by intensity level
+  (`LIGHT` / `MODERATE` / `VIGOROUS`). `totalActiveMinutes` convenience getter
+  sums the three.
+- **Sedentary Period** (`GoogleHealthSedentaryPeriodData{Manager,APIURL}`) —
+  daily rollup of total sedentary time as a Dart `Duration`. Parses both
+  whole-second (`"3600s"`) and fractional (`"3.5s"`) duration strings.
+- **Resting Heart Rate** now exposes `calculationMethod` (`WITH_SLEEP` /
+  `ONLY_WITH_AWAKE_DATA` / `CALCULATION_METHOD_UNSPECIFIED`).
+- **HRV** now exposes `nonRemBpm`, `entropy`, and `deepSleepRmssdMs` alongside
+  the `rmssd` average.
+- **Sleep** model rewritten around `sleep.summary.stagesSummary` — per-stage
+  minutes and counts (`deepMinutes` / `deepCount`, `remMinutes` / `remCount`,
+  `lightMinutes` / `lightCount`, `awakeMinutes` / `awakeCount`) plus the
+  top-level `minutesAsleep` / `minutesAwake` / `minutesInSleepPeriod` totals.
+  Naps are filtered out in the manager.
+- **`dateRange()` factory** documented for every time-series URL builder.
+  Pass a start/end calendar-day pair to receive one rollup point (or one
+  daily list entry) per day in the range. Useful when you want a chart over a
+  week or month from a single call.
+
+### Changed
+
+- README rewritten: the **Supported Data Types** table now lists every type
+  with its endpoint, HTTP verb, and granularity. A **Data Types Reference**
+  section documents every field of every model, plus a copy-paste example for
+  each.
+- Example app rewritten as a debug harness with one card per data type. Each
+  card has a `SegmentedButton` to toggle between single-day and date-range
+  queries, separate date pickers, and a dialog that prints the raw URL and
+  every returned data point.
+- Active Minutes activity-level enum values corrected to match the live API
+  (`LIGHT` / `MODERATE` / `VIGOROUS`, previously incorrectly assumed to be
+  `LIGHTLY_ACTIVE` / `MODERATELY_ACTIVE` / `VERY_ACTIVE`).
+
 ## 0.5.1
 
 ### Changed

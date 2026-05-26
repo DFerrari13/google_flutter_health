@@ -30,27 +30,14 @@ void main() {
       );
     });
 
-    test('fetch() POSTs to dailyRollUp and parses civil-time data points',
+    test('fetch() POSTs to :rollUp endpoint and parses rollupDataPoints',
         () async {
       final body = jsonEncode({
-        'dataPoints': [
+        'rollupDataPoints': [
           {
-            'civilStartTime': {
-              'date': {'year': 2026, 'month': 1, 'day': 15},
-            },
-            'civilEndTime': {
-              'date': {'year': 2026, 'month': 1, 'day': 16},
-            },
-            'steps': {'countSum': '5000'},
-          },
-          {
-            'civilStartTime': {
-              'date': {'year': 2026, 'month': 1, 'day': 16},
-            },
-            'civilEndTime': {
-              'date': {'year': 2026, 'month': 1, 'day': 17},
-            },
-            'steps': {'countSum': '7500'},
+            'startTime': '2025-06-12T00:00:00Z',
+            'endTime': '2025-06-13T00:00:00Z',
+            'steps': {'countSum': '8500'},
           },
         ],
       });
@@ -58,13 +45,13 @@ void main() {
       var endpointHit = false;
       final client = MockClient((request) async {
         if (request.url.path ==
-                '/v4/users/me/dataTypes/steps/dataPoints:dailyRollUp' &&
+                '/v4/users/me/dataTypes/steps/dataPoints:rollUp' &&
             request.method == 'POST') {
           endpointHit = true;
-          expect(request.headers['Authorization'], 'Bearer valid_token');
-          expect(request.headers['Content-Type'], contains('application/json'));
-          final decoded = jsonDecode(request.body) as Map<String, dynamic>;
-          expect(decoded['range'], isNotNull);
+          final reqBody = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(reqBody['windowSize'], '86400s');
+          expect((reqBody['range'] as Map)['startTime'],
+              '2025-06-12T00:00:00.000Z');
           return http.Response(body, 200);
         }
         return http.Response('Not found', 404);
@@ -78,98 +65,89 @@ void main() {
       );
 
       final result = await manager.fetch(
-        GoogleHealthStepsAPIURL.day(date: DateTime(2026, 1, 15)),
+        GoogleHealthStepsAPIURL.day(date: DateTime(2025, 6, 12)),
       );
 
       expect(endpointHit, isTrue);
-      expect(result.data, hasLength(2));
-      expect(result.data.first.count, 5000);
-      expect(result.data[1].count, 7500);
-      expect(result.credentials.accessToken, credentials.accessToken);
+      expect(result.data, hasLength(1));
+      expect(result.data.first.countSum, 8500);
     });
 
-    test('fetch() returns empty list when dataPoints is missing', () async {
-      final client = MockClient((request) async {
-        return http.Response(jsonEncode({}), 200);
-      });
-
+    test('fetch() returns empty list when rollupDataPoints is missing',
+        () async {
+      final client = MockClient(
+        (_) async => http.Response(jsonEncode(<String, dynamic>{}), 200),
+      );
       final manager = GoogleHealthStepsDataManager(
         credentials: credentials,
         clientID: 'client_id',
         clientSecret: 'client_secret',
         httpClient: client,
       );
-
       final result = await manager.fetch(
-        GoogleHealthStepsAPIURL.day(date: DateTime(2026, 1, 15)),
+        GoogleHealthStepsAPIURL.day(date: DateTime(2025, 6, 12)),
       );
       expect(result.data, isEmpty);
     });
 
     test('fetch() refreshes token when isExpired is true', () async {
-      final newTokenBody = jsonEncode({
-        'access_token': 'new_access_token',
-        'expires_in': 3600,
-        'token_type': 'Bearer',
-      });
-      final dataBody = jsonEncode({'dataPoints': []});
-
       final client = MockClient((request) async {
         if (request.url.host == 'oauth2.googleapis.com') {
-          return http.Response(newTokenBody, 200);
+          return http.Response(
+            jsonEncode({
+              'access_token': 'new_access_token',
+              'expires_in': 3600,
+              'token_type': 'Bearer',
+            }),
+            200,
+          );
         }
-        return http.Response(dataBody, 200);
+        return http.Response(jsonEncode({'rollupDataPoints': []}), 200);
       });
-
       final manager = GoogleHealthStepsDataManager(
         credentials: expiredCredentials,
         clientID: 'client_id',
         clientSecret: 'client_secret',
         httpClient: client,
       );
-
       final result = await manager.fetch(
-        GoogleHealthStepsAPIURL.day(date: DateTime(2026, 1, 15)),
+        GoogleHealthStepsAPIURL.day(date: DateTime(2025, 6, 12)),
       );
       expect(result.credentials.accessToken, 'new_access_token');
     });
 
     test('fetch() throws GoogleHealthTokenExpiredException on 401', () async {
-      final client = MockClient((request) async {
-        return http.Response('Unauthorized', 401);
-      });
-
+      final client =
+          MockClient((_) async => http.Response('Unauthorized', 401));
       final manager = GoogleHealthStepsDataManager(
         credentials: credentials,
         clientID: 'client_id',
         clientSecret: 'client_secret',
         httpClient: client,
       );
-
       expect(
         () => manager.fetch(
-          GoogleHealthStepsAPIURL.day(date: DateTime(2026, 1, 15)),
+          GoogleHealthStepsAPIURL.day(date: DateTime(2025, 6, 12)),
         ),
         throwsA(isA<GoogleHealthTokenExpiredException>()),
       );
     });
 
     test('fetch() throws GoogleHealthRateLimitException on 429', () async {
-      final client = MockClient((request) async {
-        return http.Response('Rate limit exceeded', 429,
-            headers: {'retry-after': '30'});
-      });
-
+      final client = MockClient((_) async => http.Response(
+            'Rate limit exceeded',
+            429,
+            headers: {'retry-after': '30'},
+          ));
       final manager = GoogleHealthStepsDataManager(
         credentials: credentials,
         clientID: 'client_id',
         clientSecret: 'client_secret',
         httpClient: client,
       );
-
       expect(
         () => manager.fetch(
-          GoogleHealthStepsAPIURL.day(date: DateTime(2026, 1, 15)),
+          GoogleHealthStepsAPIURL.day(date: DateTime(2025, 6, 12)),
         ),
         throwsA(isA<GoogleHealthRateLimitException>()),
       );

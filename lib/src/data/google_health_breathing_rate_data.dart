@@ -1,67 +1,47 @@
 import '_parsing_helpers.dart';
 
-/// A single daily breathing rate (respiratory rate) data point from the
-/// Google Health API.
-///
-/// Breathing rate is a Daily-aggregated metric. Each instance represents the
-/// average, minimum, and maximum breaths per minute for one civil day.
+/// A single daily respiratory rate data point from the Google Health API
+/// (`daily-respiratory-rate`).
 class GoogleHealthBreathingRateData {
   final String? name;
   final DateTime? startTime;
-  final DateTime? endTime;
-  final double? breathsPerMinuteAvg;
-  final double? breathsPerMinuteMin;
-  final double? breathsPerMinuteMax;
+
+  /// Average breaths per minute for the night (`breathsPerMinute`).
+  final double? breathsPerMinute;
 
   const GoogleHealthBreathingRateData({
     this.name,
     this.startTime,
-    this.endTime,
-    this.breathsPerMinuteAvg,
-    this.breathsPerMinuteMin,
-    this.breathsPerMinuteMax,
+    this.breathsPerMinute,
   });
 
   factory GoogleHealthBreathingRateData.fromJson(Map<String, dynamic> json) {
-    final field = json['dailyBreathingRate'] ?? json['dailyRespiratoryRate'];
+    final field = json['dailyRespiratoryRate'];
     final o = field is Map<String, dynamic> ? field : const <String, dynamic>{};
 
-    DateTime? start;
-    DateTime? end;
-    final civilField = o['civilDateTime'] ?? o['interval'];
-    if (civilField is Map<String, dynamic>) {
-      start = parseCivilDateTime(civilField['startTime']) ??
-          parsePhysicalTime(civilField['startTime']);
-      end = parseCivilDateTime(civilField['endTime']) ??
-          parsePhysicalTime(civilField['endTime']);
+    DateTime? date;
+    final dateObj = o['date'];
+    if (dateObj is Map) {
+      final y = (dateObj['year'] as num?)?.toInt();
+      final mo = (dateObj['month'] as num?)?.toInt();
+      final d = (dateObj['day'] as num?)?.toInt();
+      if (y != null && mo != null && d != null) date = DateTime(y, mo, d);
     }
+
     return GoogleHealthBreathingRateData(
       name: json['name'] as String?,
-      startTime: start ?? parseCivilDateTime(json['civilStartTime']),
-      endTime: end ?? parseCivilDateTime(json['civilEndTime']),
-      breathsPerMinuteAvg: parseNumber(
-        o['breathsPerMinuteAvg'] ?? o['rateAvg'] ?? o['breathsPerMinute'],
-      ),
-      breathsPerMinuteMin:
-          parseNumber(o['breathsPerMinuteMin'] ?? o['rateMin']),
-      breathsPerMinuteMax:
-          parseNumber(o['breathsPerMinuteMax'] ?? o['rateMax']),
+      startTime: date,
+      breathsPerMinute: parseNumber(o['breathsPerMinute']),
     );
   }
 
   Map<String, dynamic> toJson() => {
         'name': name,
-        'startTime': startTime?.toUtc().toIso8601String(),
-        'endTime': endTime?.toUtc().toIso8601String(),
-        'breathsPerMinuteAvg': breathsPerMinuteAvg,
-        'breathsPerMinuteMin': breathsPerMinuteMin,
-        'breathsPerMinuteMax': breathsPerMinuteMax,
+        'startTime': startTime?.toIso8601String(),
+        'breathsPerMinute': breathsPerMinute,
       };
 
   @override
   String toString() => 'GoogleHealthBreathingRateData(name: $name, '
-      'startTime: $startTime, endTime: $endTime, '
-      'breathsPerMinuteAvg: $breathsPerMinuteAvg, '
-      'breathsPerMinuteMin: $breathsPerMinuteMin, '
-      'breathsPerMinuteMax: $breathsPerMinuteMax)';
+      'startTime: $startTime, breathsPerMinute: $breathsPerMinute)';
 }
