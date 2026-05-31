@@ -7,8 +7,7 @@ import 'google_sign_in_service.dart';
 // Replace with your Web OAuth 2.0 client ID from Google Cloud Console.
 // The client type must be "Web application" (not Android/iOS).
 // See: https://console.cloud.google.com/apis/credentials
-const _webClientID =
-    'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com';
+const _webClientID = 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com';
 const _webClientSecret = 'YOUR_CLIENT_SECRET';
 
 const _scopes = <String>[
@@ -22,8 +21,7 @@ const _scopes = <String>[
 enum _QueryMode { day, dateRange }
 
 // Top-level so both state and dialogs can share it.
-String _fmtDate(DateTime d) =>
-    '${d.year.toString().padLeft(4, '0')}-'
+String _fmtDate(DateTime d) => '${d.year.toString().padLeft(4, '0')}-'
     '${d.month.toString().padLeft(2, '0')}-'
     '${d.day.toString().padLeft(2, '0')}';
 
@@ -129,6 +127,14 @@ class _HomePageState extends State<HomePage> {
   DateTime _tempEnd = DateTime(2024, 12, 28);
   bool _tempLoading = false;
   String? _tempError;
+
+  // ── ECG ────────────────────────────────────────────────────────────────
+  _QueryMode _ecgMode = _QueryMode.day;
+  DateTime _ecgDay = DateTime(2024, 12, 28);
+  DateTime _ecgStart = DateTime(2024, 12, 22);
+  DateTime _ecgEnd = DateTime(2024, 12, 28);
+  bool _ecgLoading = false;
+  String? _ecgError;
 
   // ── Lifecycle ──────────────────────────────────────────────────────────
 
@@ -684,6 +690,46 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _fetchEcg() async {
+    final credentials = _auth.session.credentials;
+    if (credentials == null) return;
+    setState(() {
+      _ecgLoading = true;
+      _ecgError = null;
+    });
+    try {
+      final url = _ecgMode == _QueryMode.day
+          ? GoogleHealthElectrocardiogramAPIURL.day(date: _ecgDay)
+          : GoogleHealthElectrocardiogramAPIURL.dateRange(
+              startDate: _ecgStart, endDate: _ecgEnd);
+      debugPrint('[ECG DEBUG] URL: ${url.uri}');
+      final result = await GoogleHealthElectrocardiogramDataManager(
+        credentials: credentials,
+        clientID: _webClientID,
+        clientSecret: _webClientSecret,
+      ).fetch(url);
+      _auth.session.updateCredentials(result.credentials);
+      for (final d in result.data) {
+        debugPrint('[ECG DEBUG] reading: $d');
+      }
+      if (!mounted) return;
+      showDialog<void>(
+        context: context,
+        builder: (_) => _EcgResultDialog(
+          label: _queryLabel(_ecgMode, _ecgDay, _ecgStart, _ecgEnd),
+          url: url.uri.toString(),
+          readings: result.data,
+        ),
+      );
+    } on GoogleHealthException catch (e) {
+      setState(() => _ecgError = e.message);
+    } catch (e) {
+      setState(() => _ecgError = 'Unexpected error: $e');
+    } finally {
+      setState(() => _ecgLoading = false);
+    }
+  }
+
   // ── Build ──────────────────────────────────────────────────────────────
 
   @override
@@ -751,8 +797,7 @@ class _HomePageState extends State<HomePage> {
                             _profile!.membershipStartDate ?? 'null'),
                         _Row('Time zone', _profile!.timeZone ?? 'null'),
                         _Row('Locale', _profile!.languageLocale ?? 'null'),
-                        _Row(
-                            'Distance unit', _profile!.distanceUnit ?? 'null'),
+                        _Row('Distance unit', _profile!.distanceUnit ?? 'null'),
                         _Row('Weight unit', _profile!.weightUnit ?? 'null'),
                         _Row('Temperature unit',
                             _profile!.temperatureUnit ?? 'null'),
@@ -770,8 +815,8 @@ class _HomePageState extends State<HomePage> {
                         const SizedBox(height: 4),
                         Text(
                           _profileError!,
-                          style: const TextStyle(
-                              color: Colors.red, fontSize: 12),
+                          style:
+                              const TextStyle(color: Colors.red, fontSize: 12),
                         ),
                       ],
                     ],
@@ -788,14 +833,10 @@ class _HomePageState extends State<HomePage> {
                         day: _sleepDay,
                         rangeStart: _sleepStart,
                         rangeEnd: _sleepEnd,
-                        onModeChanged: (m) =>
-                            setState(() => _sleepMode = m),
-                        onDayChanged: (d) =>
-                            setState(() => _sleepDay = d),
-                        onStartChanged: (d) =>
-                            setState(() => _sleepStart = d),
-                        onEndChanged: (d) =>
-                            setState(() => _sleepEnd = d),
+                        onModeChanged: (m) => setState(() => _sleepMode = m),
+                        onDayChanged: (d) => setState(() => _sleepDay = d),
+                        onStartChanged: (d) => setState(() => _sleepStart = d),
+                        onEndChanged: (d) => setState(() => _sleepEnd = d),
                       ),
                       const SizedBox(height: 4),
                       if (_sleepLoading)
@@ -826,11 +867,9 @@ class _HomePageState extends State<HomePage> {
                         day: _brDay,
                         rangeStart: _brStart,
                         rangeEnd: _brEnd,
-                        onModeChanged: (m) =>
-                            setState(() => _brMode = m),
+                        onModeChanged: (m) => setState(() => _brMode = m),
                         onDayChanged: (d) => setState(() => _brDay = d),
-                        onStartChanged: (d) =>
-                            setState(() => _brStart = d),
+                        onStartChanged: (d) => setState(() => _brStart = d),
                         onEndChanged: (d) => setState(() => _brEnd = d),
                       ),
                       const SizedBox(height: 4),
@@ -862,14 +901,10 @@ class _HomePageState extends State<HomePage> {
                         day: _actDay,
                         rangeStart: _actStart,
                         rangeEnd: _actEnd,
-                        onModeChanged: (m) =>
-                            setState(() => _actMode = m),
-                        onDayChanged: (d) =>
-                            setState(() => _actDay = d),
-                        onStartChanged: (d) =>
-                            setState(() => _actStart = d),
-                        onEndChanged: (d) =>
-                            setState(() => _actEnd = d),
+                        onModeChanged: (m) => setState(() => _actMode = m),
+                        onDayChanged: (d) => setState(() => _actDay = d),
+                        onStartChanged: (d) => setState(() => _actStart = d),
+                        onEndChanged: (d) => setState(() => _actEnd = d),
                       ),
                       const SizedBox(height: 4),
                       if (_actLoading)
@@ -900,14 +935,10 @@ class _HomePageState extends State<HomePage> {
                         day: _stepsDay,
                         rangeStart: _stepsStart,
                         rangeEnd: _stepsEnd,
-                        onModeChanged: (m) =>
-                            setState(() => _stepsMode = m),
-                        onDayChanged: (d) =>
-                            setState(() => _stepsDay = d),
-                        onStartChanged: (d) =>
-                            setState(() => _stepsStart = d),
-                        onEndChanged: (d) =>
-                            setState(() => _stepsEnd = d),
+                        onModeChanged: (m) => setState(() => _stepsMode = m),
+                        onDayChanged: (d) => setState(() => _stepsDay = d),
+                        onStartChanged: (d) => setState(() => _stepsStart = d),
+                        onEndChanged: (d) => setState(() => _stepsEnd = d),
                       ),
                       const SizedBox(height: 4),
                       if (_stepsLoading)
@@ -938,14 +969,10 @@ class _HomePageState extends State<HomePage> {
                         day: _spo2Day,
                         rangeStart: _spo2Start,
                         rangeEnd: _spo2End,
-                        onModeChanged: (m) =>
-                            setState(() => _spo2Mode = m),
-                        onDayChanged: (d) =>
-                            setState(() => _spo2Day = d),
-                        onStartChanged: (d) =>
-                            setState(() => _spo2Start = d),
-                        onEndChanged: (d) =>
-                            setState(() => _spo2End = d),
+                        onModeChanged: (m) => setState(() => _spo2Mode = m),
+                        onDayChanged: (d) => setState(() => _spo2Day = d),
+                        onStartChanged: (d) => setState(() => _spo2Start = d),
+                        onEndChanged: (d) => setState(() => _spo2End = d),
                       ),
                       const SizedBox(height: 4),
                       if (_spo2Loading)
@@ -976,14 +1003,10 @@ class _HomePageState extends State<HomePage> {
                         day: _hrvDay,
                         rangeStart: _hrvStart,
                         rangeEnd: _hrvEnd,
-                        onModeChanged: (m) =>
-                            setState(() => _hrvMode = m),
-                        onDayChanged: (d) =>
-                            setState(() => _hrvDay = d),
-                        onStartChanged: (d) =>
-                            setState(() => _hrvStart = d),
-                        onEndChanged: (d) =>
-                            setState(() => _hrvEnd = d),
+                        onModeChanged: (m) => setState(() => _hrvMode = m),
+                        onDayChanged: (d) => setState(() => _hrvDay = d),
+                        onStartChanged: (d) => setState(() => _hrvStart = d),
+                        onEndChanged: (d) => setState(() => _hrvEnd = d),
                       ),
                       const SizedBox(height: 4),
                       if (_hrvLoading)
@@ -1014,14 +1037,10 @@ class _HomePageState extends State<HomePage> {
                         day: _rhrDay,
                         rangeStart: _rhrStart,
                         rangeEnd: _rhrEnd,
-                        onModeChanged: (m) =>
-                            setState(() => _rhrMode = m),
-                        onDayChanged: (d) =>
-                            setState(() => _rhrDay = d),
-                        onStartChanged: (d) =>
-                            setState(() => _rhrStart = d),
-                        onEndChanged: (d) =>
-                            setState(() => _rhrEnd = d),
+                        onModeChanged: (m) => setState(() => _rhrMode = m),
+                        onDayChanged: (d) => setState(() => _rhrDay = d),
+                        onStartChanged: (d) => setState(() => _rhrStart = d),
+                        onEndChanged: (d) => setState(() => _rhrEnd = d),
                       ),
                       const SizedBox(height: 4),
                       if (_rhrLoading)
@@ -1052,14 +1071,10 @@ class _HomePageState extends State<HomePage> {
                         day: _tempDay,
                         rangeStart: _tempStart,
                         rangeEnd: _tempEnd,
-                        onModeChanged: (m) =>
-                            setState(() => _tempMode = m),
-                        onDayChanged: (d) =>
-                            setState(() => _tempDay = d),
-                        onStartChanged: (d) =>
-                            setState(() => _tempStart = d),
-                        onEndChanged: (d) =>
-                            setState(() => _tempEnd = d),
+                        onModeChanged: (m) => setState(() => _tempMode = m),
+                        onDayChanged: (d) => setState(() => _tempDay = d),
+                        onStartChanged: (d) => setState(() => _tempStart = d),
+                        onEndChanged: (d) => setState(() => _tempEnd = d),
                       ),
                       const SizedBox(height: 4),
                       if (_tempLoading)
@@ -1073,6 +1088,40 @@ class _HomePageState extends State<HomePage> {
                       if (_tempError != null) ...[
                         const SizedBox(height: 4),
                         Text(_tempError!,
+                            style: const TextStyle(
+                                color: Colors.red, fontSize: 12)),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // ── ECG ──────────────────────────────────────────────
+                  _SectionCard(
+                    title: 'Electrocardiogram (ECG)',
+                    color: Colors.pink.shade50,
+                    children: [
+                      _buildQueryControls(
+                        mode: _ecgMode,
+                        day: _ecgDay,
+                        rangeStart: _ecgStart,
+                        rangeEnd: _ecgEnd,
+                        onModeChanged: (m) => setState(() => _ecgMode = m),
+                        onDayChanged: (d) => setState(() => _ecgDay = d),
+                        onStartChanged: (d) => setState(() => _ecgStart = d),
+                        onEndChanged: (d) => setState(() => _ecgEnd = d),
+                      ),
+                      const SizedBox(height: 4),
+                      if (_ecgLoading)
+                        const Center(child: CircularProgressIndicator())
+                      else
+                        FilledButton.icon(
+                          onPressed: _fetchEcg,
+                          icon: const Icon(Icons.ssid_chart),
+                          label: const Text('Fetch ECG'),
+                        ),
+                      if (_ecgError != null) ...[
+                        const SizedBox(height: 4),
+                        Text(_ecgError!,
                             style: const TextStyle(
                                 color: Colors.red, fontSize: 12)),
                       ],
@@ -1273,8 +1322,7 @@ class _SleepResultDialog extends StatelessWidget {
   final String url;
   final List<GoogleHealthSleepData> sessions;
 
-  String _fmtTime(DateTime d) =>
-      '${d.hour.toString().padLeft(2, '0')}:'
+  String _fmtTime(DateTime d) => '${d.hour.toString().padLeft(2, '0')}:'
       '${d.minute.toString().padLeft(2, '0')}';
 
   @override
@@ -1553,4 +1601,235 @@ class _Spo2ResultDialog extends StatelessWidget {
       ],
     );
   }
+}
+
+String _ecgClassificationLabel(GoogleHealthEcgResultClassification c) {
+  switch (c) {
+    case GoogleHealthEcgResultClassification.normalSinusRhythm:
+      return 'Normal Sinus Rhythm';
+    case GoogleHealthEcgResultClassification.atrialFibrillation:
+      return 'Atrial Fibrillation';
+    case GoogleHealthEcgResultClassification.inconclusive:
+      return 'Inconclusive';
+    case GoogleHealthEcgResultClassification.inconclusiveHighHeartRate:
+      return 'Inconclusive: High heart rate';
+    case GoogleHealthEcgResultClassification.inconclusiveLowHeartRate:
+      return 'Inconclusive: Low heart rate';
+    case GoogleHealthEcgResultClassification.unreadable:
+      return 'Unreadable';
+    case GoogleHealthEcgResultClassification.notAnalyzed:
+      return 'Not analyzed';
+    case GoogleHealthEcgResultClassification.unspecified:
+      return 'Unspecified';
+  }
+}
+
+class _EcgResultDialog extends StatelessWidget {
+  const _EcgResultDialog({
+    required this.label,
+    required this.url,
+    required this.readings,
+  });
+
+  final String label;
+  final String url;
+  final List<GoogleHealthElectrocardiogramData> readings;
+
+  String _fmtTime(DateTime d) => '${d.hour.toString().padLeft(2, '0')}:'
+      '${d.minute.toString().padLeft(2, '0')}:'
+      '${d.second.toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('ECG — $label'),
+      content: SizedBox(
+        width: 480,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SelectableText(
+                'URL:\n$url',
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+              ),
+              const SizedBox(height: 8),
+              Text('Readings: ${readings.length}',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              if (readings.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Text('No ECG readings for this period.'),
+                )
+              else
+                for (var i = 0; i < readings.length; i++)
+                  _buildReading(context, i, readings[i]),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReading(
+    BuildContext context,
+    int index,
+    GoogleHealthElectrocardiogramData ecg,
+  ) {
+    final mv = ecg.waveformMillivolts;
+    final time = ecg.startTime != null
+        ? '${_fmtDate(ecg.startTime!.toLocal())} '
+            '${_fmtTime(ecg.startTime!.toLocal())}'
+        : 'unknown time';
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Reading $index — $time',
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 2),
+            Text(_ecgClassificationLabel(ecg.resultClassification),
+                style: TextStyle(
+                  color: ecg.resultClassification ==
+                          GoogleHealthEcgResultClassification.atrialFibrillation
+                      ? Colors.red
+                      : Colors.black87,
+                  fontSize: 13,
+                )),
+            Text(
+              'Avg HR: ${ecg.beatsPerMinuteAvg ?? '–'} bpm   '
+              '${ecg.samplingFrequencyHertz ?? '–'} Hz   '
+              'lead ${ecg.leadNumber ?? '–'}',
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+            const SizedBox(height: 8),
+            if (mv.isEmpty)
+              const Text('No waveform samples.',
+                  style: TextStyle(fontSize: 12, color: Colors.black45))
+            else
+              _EcgChart(
+                millivolts: mv,
+                samplingFrequencyHertz: ecg.samplingFrequencyHertz,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Renders an ECG lead I waveform (millivolts vs. time) on a clinical-style
+/// pink grid.
+class _EcgChart extends StatelessWidget {
+  const _EcgChart({
+    required this.millivolts,
+    required this.samplingFrequencyHertz,
+  });
+
+  final List<double> millivolts;
+  final int? samplingFrequencyHertz;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: SizedBox(
+        height: 160,
+        child: CustomPaint(
+          painter: _EcgWaveformPainter(
+            millivolts: millivolts,
+            samplingFrequencyHertz: samplingFrequencyHertz,
+          ),
+          size: Size.infinite,
+        ),
+      ),
+    );
+  }
+}
+
+class _EcgWaveformPainter extends CustomPainter {
+  _EcgWaveformPainter({
+    required this.millivolts,
+    required this.samplingFrequencyHertz,
+  });
+
+  final List<double> millivolts;
+  final int? samplingFrequencyHertz;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final bg = Paint()..color = const Color(0xFFFFF5F5);
+    canvas.drawRect(Offset.zero & size, bg);
+
+    // Grid lines (~5px minor, 25px major) like ECG paper.
+    final minorGrid = Paint()
+      ..color = const Color(0xFFF3C9C9)
+      ..strokeWidth = 0.5;
+    final majorGrid = Paint()
+      ..color = const Color(0xFFE39A9A)
+      ..strokeWidth = 1.0;
+    const minor = 8.0;
+    const majorEvery = 5;
+    var idx = 0;
+    for (double x = 0; x <= size.width; x += minor, idx++) {
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x, size.height),
+        idx % majorEvery == 0 ? majorGrid : minorGrid,
+      );
+    }
+    idx = 0;
+    for (double y = 0; y <= size.height; y += minor, idx++) {
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width, y),
+        idx % majorEvery == 0 ? majorGrid : minorGrid,
+      );
+    }
+
+    if (millivolts.isEmpty) return;
+
+    // Vertical scale: fit min..max into the canvas with small padding.
+    var minV = millivolts.first;
+    var maxV = millivolts.first;
+    for (final v in millivolts) {
+      if (v < minV) minV = v;
+      if (v > maxV) maxV = v;
+    }
+    var range = maxV - minV;
+    if (range.abs() < 1e-6) range = 1.0;
+    const padFrac = 0.1;
+    final padded = range * (1 + padFrac * 2);
+    final top = maxV + range * padFrac;
+
+    double xFor(int i) =>
+        millivolts.length == 1 ? 0 : size.width * i / (millivolts.length - 1);
+    double yFor(double v) => (top - v) / padded * size.height;
+
+    final wave = Paint()
+      ..color = const Color(0xFFC2185B)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4
+      ..strokeJoin = StrokeJoin.round;
+
+    final path = Path()..moveTo(xFor(0), yFor(millivolts.first));
+    for (var i = 1; i < millivolts.length; i++) {
+      path.lineTo(xFor(i), yFor(millivolts[i]));
+    }
+    canvas.drawPath(path, wave);
+  }
+
+  @override
+  bool shouldRepaint(_EcgWaveformPainter oldDelegate) =>
+      oldDelegate.millivolts != millivolts ||
+      oldDelegate.samplingFrequencyHertz != samplingFrequencyHertz;
 }
