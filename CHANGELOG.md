@@ -1,3 +1,8 @@
+## 0.6.1
+
+- Replaced hardcoded OAuth credentials in example app with placeholders.
+- Removed build artifacts (`.dart_tool/`, `build/`) from repository.
+
 ## 0.6.0
 
 ### Breaking changes
