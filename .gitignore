@@ -1,2 +1,5 @@
 # Google OAuth client secrets — never commit
 client_secret*.json
+
+# Example app local config — override with real credentials locally, never commit
+example/lib/local_config.dart

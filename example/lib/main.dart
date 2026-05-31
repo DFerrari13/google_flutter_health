@@ -4,6 +4,9 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import 'google_sign_in_service.dart';
 
+// Replace with your Web OAuth 2.0 client ID from Google Cloud Console.
+// The client type must be "Web application" (not Android/iOS).
+// See: https://console.cloud.google.com/apis/credentials
 const _webClientID =
     'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com';
 const _webClientSecret = 'YOUR_CLIENT_SECRET';
