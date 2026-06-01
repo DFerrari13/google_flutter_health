@@ -61,6 +61,19 @@ String buildTimeFilter({
   return '$fieldPath >= "$start" AND $fieldPath < "$end"';
 }
 
+/// Builds a lower-bound-only filter expression (`fieldPath >= start`).
+///
+/// Some data types — notably `electrocardiogram` — only support the `>=`
+/// operator on their start-time field. Adding an upper bound (`< end`) yields
+/// HTTP 400 "invalid data point filter, filtering by time is not supported".
+String buildStartTimeFilter({
+  required String fieldPath,
+  required DateTime startTime,
+}) {
+  final start = startTime.toUtc().toIso8601String();
+  return '$fieldPath >= "$start"';
+}
+
 /// Builds a filter expression for civil-date fields (date-only, no time zone).
 ///
 /// Use for session fields like `sleep.interval.civil_end_time` and

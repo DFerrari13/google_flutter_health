@@ -1,3 +1,37 @@
+## 0.7.0
+
+### Added
+
+- **Electrocardiogram** (`GoogleHealthElectrocardiogramData{Manager,APIURL}`) —
+  ECG readings with lead I waveform samples, rhythm classification
+  (`GoogleHealthEcgResultClassification`: `normalSinusRhythm`, `atrialFibrillation`,
+  `inconclusive*`, `unreadable`, `notAnalyzed`), average bpm, sampling frequency,
+  millivolts scaling factor, and SaMD device metadata.
+  Convenience getters: `waveformMillivolts` (raw samples → mV), `sampleDuration`.
+  Requires `GoogleHealthScopes.ecgReadonly`.
+  **API note:** the ECG endpoint only supports a `>=` lower-bound filter on
+  `start_time` — an upper bound returns HTTP 400. Both `day()` and `dateRange()`
+  filter from the given start date onward.
+- **Irregular Rhythm Notification** (`GoogleHealthIrregularRhythmNotificationData{Manager,APIURL}`) —
+  AFib alert sessions with nested `alertWindows` (each containing `heartBeats` and
+  positivity flag) and SaMD device metadata.
+  Requires `GoogleHealthScopes.irnReadonly`.
+  Same one-sided filter constraint as ECG.
+- **Paired Devices** (`GoogleHealthPairedDeviceData{Manager,APIURL}`) — list or
+  fetch individual Bluetooth devices paired to the authenticated user, including
+  device type, battery status/level, last sync time, firmware version, MAC address,
+  and supported feature identifiers.
+  Uses `GoogleHealthPairedDeviceAPIURL.list` (all devices) or
+  `GoogleHealthPairedDeviceAPIURL.get(name)` (single device).
+  Requires `GoogleHealthScopes.settingsReadonly`.
+- `GoogleHealthMedicalDeviceInfo` — shared SaMD metadata model embedded in both
+  ECG and IRN data points (`algorithmVersion`, `serviceVersion`, `firmwareVersion`,
+  `featureVersion`, `deviceModel`).
+- `GoogleHealthScopes.ecg` / `ecgReadonly` and `GoogleHealthScopes.irn` / `irnReadonly`
+  scope constants.
+- Example app updated: ECG card with waveform chart, IRN card, and Paired Devices
+  card.
+
 ## 0.6.1
 
 - Replaced hardcoded OAuth credentials in example app with placeholders.

@@ -169,7 +169,8 @@ class GoogleHealthIrregularRhythmAlertWindow {
 /// An IRN indicates a potential sign of atrial fibrillation (AFib) detected
 /// by a wearable SaMD algorithm.
 ///
-/// Requires the `googlehealth.health_metrics_and_measurements.readonly` scope.
+/// Requires the `googlehealth.irn.readonly` scope
+/// ([GoogleHealthScopes.irnReadonly]).
 class GoogleHealthIrregularRhythmNotificationData {
   /// Resource name of the data point.
   final String? name;

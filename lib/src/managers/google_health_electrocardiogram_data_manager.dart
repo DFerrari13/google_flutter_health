@@ -3,8 +3,8 @@ import 'google_health_data_manager.dart';
 
 /// Fetches Electrocardiogram (ECG) readings from the Google Health API.
 ///
-/// Requires the `googlehealth.health_metrics_and_measurements.readonly` scope
-/// ([GoogleHealthScopes.healthMetricsReadonly]).
+/// Requires the `googlehealth.ecg.readonly` scope
+/// ([GoogleHealthScopes.ecgReadonly]).
 class GoogleHealthElectrocardiogramDataManager
     extends GoogleHealthDataManager<GoogleHealthElectrocardiogramData> {
   GoogleHealthElectrocardiogramDataManager({

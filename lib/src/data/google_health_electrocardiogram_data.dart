@@ -83,7 +83,8 @@ enum GoogleHealthEcgResultClassification {
 /// [waveformSamples] together with [millivoltsScalingFactor] (or the
 /// convenience getter [waveformMillivolts]) to plot the lead I waveform.
 ///
-/// Requires the `googlehealth.health_metrics_and_measurements.readonly` scope.
+/// Requires the `googlehealth.ecg.readonly` scope
+/// ([GoogleHealthScopes.ecgReadonly]).
 class GoogleHealthElectrocardiogramData {
   /// Resource name of the data point.
   final String? name;

@@ -4,8 +4,8 @@ import 'google_health_data_manager.dart';
 /// Fetches Irregular Rhythm Notification (IRN/AFib) sessions from the Google
 /// Health API.
 ///
-/// Requires the `googlehealth.health_metrics_and_measurements.readonly` scope
-/// ([GoogleHealthScopes.healthMetricsReadonly]).
+/// Requires the `googlehealth.irn.readonly` scope
+/// ([GoogleHealthScopes.irnReadonly]).
 class GoogleHealthIrregularRhythmNotificationDataManager
     extends GoogleHealthDataManager<
         GoogleHealthIrregularRhythmNotificationData> {

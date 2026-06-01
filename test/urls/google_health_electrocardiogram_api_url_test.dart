@@ -15,34 +15,40 @@ void main() {
       expect(url.method, GoogleHealthRequestMethod.get);
     });
 
-    test('day() filter spans UTC midnight-to-midnight', () {
+    test('day() filters on start_time lower bound only (no upper bound)', () {
       final url = GoogleHealthElectrocardiogramAPIURL.day(
         date: DateTime(2025, 5, 31),
       );
       final filter = url.uri.queryParameters['filter']!;
       expect(filter, contains('electrocardiogram.interval.start_time'));
+      expect(filter, contains('>='));
       expect(filter, contains('2025-05-31T00:00:00.000Z'));
-      expect(filter, contains('2025-06-01T00:00:00.000Z'));
+      // ECG rejects an upper bound — the filter must not contain `<` or the
+      // day-after timestamp.
+      expect(filter, isNot(contains('<')));
+      expect(filter, isNot(contains('2025-06-01')));
     });
 
-    test('dateRange() filter spans start to day-after-end', () {
+    test('dateRange() filters from startDate lower bound, ignores endDate', () {
       final url = GoogleHealthElectrocardiogramAPIURL.dateRange(
         startDate: DateTime(2025, 5, 1),
         endDate: DateTime(2025, 5, 31),
       );
       final filter = url.uri.queryParameters['filter']!;
+      expect(filter, contains('>='));
       expect(filter, contains('2025-05-01T00:00:00.000Z'));
-      expect(filter, contains('2025-06-01T00:00:00.000Z'));
+      expect(filter, isNot(contains('<')));
+      expect(filter, isNot(contains('2025-06-01')));
     });
 
-    test('intraday() passes times through unchanged', () {
+    test('intraday() filters on the given start_time lower bound', () {
       final url = GoogleHealthElectrocardiogramAPIURL.intraday(
         startTime: DateTime.utc(2025, 5, 31, 10, 0),
-        endTime: DateTime.utc(2025, 5, 31, 10, 5),
       );
       final filter = url.uri.queryParameters['filter']!;
+      expect(filter, contains('>='));
       expect(filter, contains('2025-05-31T10:00:00.000Z'));
-      expect(filter, contains('2025-05-31T10:05:00.000Z'));
+      expect(filter, isNot(contains('<')));
     });
 
     test('all factories use GET method', () {
@@ -54,7 +60,6 @@ void main() {
         ),
         GoogleHealthElectrocardiogramAPIURL.intraday(
           startTime: DateTime.utc(2025, 5, 31, 0),
-          endTime: DateTime.utc(2025, 5, 31, 23),
         ),
       ];
       for (final url in urls) {

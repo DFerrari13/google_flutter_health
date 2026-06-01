@@ -16,7 +16,7 @@ void main() {
         accessTokenExpirationDateTime:
             DateTime.now().toUtc().add(const Duration(hours: 1)),
         userID: 'user_123',
-        scopes: [GoogleHealthScopes.healthMetricsReadonly],
+        scopes: [GoogleHealthScopes.ecgReadonly],
       );
     });
 

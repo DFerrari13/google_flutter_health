@@ -15,7 +15,7 @@ void main() {
       expect(url.method, GoogleHealthRequestMethod.get);
     });
 
-    test('day() filter spans UTC midnight-to-midnight', () {
+    test('day() filters on start_time lower bound only (no upper bound)', () {
       final url = GoogleHealthIrregularRhythmNotificationAPIURL.day(
         date: DateTime(2025, 5, 31),
       );
@@ -24,32 +24,35 @@ void main() {
         filter,
         contains('irregular_rhythm_notification.interval.start_time'),
       );
+      expect(filter, contains('>='));
       expect(filter, contains('2025-05-31T00:00:00.000Z'));
-      expect(filter, contains('2025-06-01T00:00:00.000Z'));
+      // IRN rejects an upper bound — the filter must not contain `<` or the
+      // day-after timestamp.
+      expect(filter, isNot(contains('<')));
+      expect(filter, isNot(contains('2025-06-01')));
     });
 
-    test(
-        'dateRange() filter spans start of first day to start of day after end',
-        () {
+    test('dateRange() filters from startDate lower bound, ignores endDate', () {
       final url = GoogleHealthIrregularRhythmNotificationAPIURL.dateRange(
         startDate: DateTime(2025, 5, 1),
         endDate: DateTime(2025, 5, 31),
       );
       final filter = url.uri.queryParameters['filter']!;
+      expect(filter, contains('>='));
       expect(filter, contains('2025-05-01T00:00:00.000Z'));
-      expect(filter, contains('2025-06-01T00:00:00.000Z'));
+      expect(filter, isNot(contains('<')));
+      expect(filter, isNot(contains('2025-06-01')));
     });
 
-    test('intraday() passes times through unchanged', () {
+    test('intraday() filters on the given start_time lower bound', () {
       final start = DateTime.utc(2025, 5, 31, 2, 10);
-      final end = DateTime.utc(2025, 5, 31, 2, 25);
       final url = GoogleHealthIrregularRhythmNotificationAPIURL.intraday(
         startTime: start,
-        endTime: end,
       );
       final filter = url.uri.queryParameters['filter']!;
+      expect(filter, contains('>='));
       expect(filter, contains('2025-05-31T02:10:00.000Z'));
-      expect(filter, contains('2025-05-31T02:25:00.000Z'));
+      expect(filter, isNot(contains('<')));
     });
 
     test('all factories use GET method', () {
@@ -63,7 +66,6 @@ void main() {
         ),
         GoogleHealthIrregularRhythmNotificationAPIURL.intraday(
           startTime: DateTime.utc(2025, 5, 31, 0),
-          endTime: DateTime.utc(2025, 5, 31, 23),
         ),
       ];
       for (final url in urls) {

@@ -18,7 +18,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  google_flutter_health: ^0.6.0
+  google_flutter_health: ^0.7.0
   google_sign_in: ^7.0.0          # for interactive sign-in on Android / iOS
   flutter_secure_storage: ^10.0.0 # for persisting credentials
 ```
@@ -211,10 +211,12 @@ all requested scopes.
 | `GoogleHealthScopes.activityAndFitnessReadonly` | `googlehealth.activity_and_fitness.readonly` | Steps, active minutes, sedentary period |
 | `GoogleHealthScopes.healthMetricsReadonly` | `googlehealth.health_metrics_and_measurements.readonly` | Resting HR, HRV, SpO2, breathing rate, skin temperature |
 | `GoogleHealthScopes.sleepReadonly` | `googlehealth.sleep.readonly` | Sleep sessions |
+| `GoogleHealthScopes.ecgReadonly` | `googlehealth.ecg.readonly` | Electrocardiogram readings (ECG has its own scope — not covered by `healthMetrics`) |
+| `GoogleHealthScopes.irnReadonly` | `googlehealth.irn.readonly` | Irregular rhythm notifications / AFib (separate scope, not covered by `healthMetrics`) |
 | `GoogleHealthScopes.profileReadonly` | `googlehealth.profile.readonly` | User profile (age, stride lengths, membership date) |
-| `GoogleHealthScopes.settingsReadonly` | `googlehealth.settings.readonly` | Unit preferences, time zone, locale (used together with `profileReadonly`) |
+| `GoogleHealthScopes.settingsReadonly` | `googlehealth.settings.readonly` | Unit preferences, time zone, locale; also required for paired devices |
 
-Write-access variants (`activityAndFitness`, `healthMetrics`, `sleep`, `profile`, `settings`)
+Write-access variants (`activityAndFitness`, `healthMetrics`, `ecg`, `irn`, `sleep`, `profile`, `settings`)
 exist but prefer read-only unless you need write access.
 
 ---
@@ -238,6 +240,9 @@ Every data type follows the same three-class pattern:
 | 8 | Breathing Rate | `/v4/users/me/dataTypes/daily-respiratory-rate/dataPoints` | GET | 1 point / day | `GoogleHealthBreathingRateDataManager` · `GoogleHealthBreathingRateAPIURL` · `GoogleHealthBreathingRateData` |
 | 9 | Skin Temperature | `/v4/users/me/dataTypes/daily-sleep-temperature-derivations/dataPoints` | GET | 1 point / night | `GoogleHealthSkinTemperatureDataManager` · `GoogleHealthSkinTemperatureAPIURL` · `GoogleHealthSkinTemperatureData` |
 | 10 | Profile & Settings | `/v4/users/me/profile` + `/v4/users/me/settings` | GET | static | `GoogleHealthProfileDataManager` · `GoogleHealthProfileAPIURL` · `GoogleHealthProfileData` |
+| 11 | Electrocardiogram | `/v4/users/me/dataTypes/electrocardiogram/dataPoints` | GET | 1 reading / session | `GoogleHealthElectrocardiogramDataManager` · `GoogleHealthElectrocardiogramAPIURL` · `GoogleHealthElectrocardiogramData` |
+| 12 | Irregular Rhythm Notification | `/v4/users/me/dataTypes/irregular-rhythm-notification/dataPoints` | GET | 1 session each | `GoogleHealthIrregularRhythmNotificationDataManager` · `GoogleHealthIrregularRhythmNotificationAPIURL` · `GoogleHealthIrregularRhythmNotificationData` |
+| 13 | Paired Devices | `/v4/users/me/pairedDevices` | GET | 1 device each | `GoogleHealthPairedDeviceDataManager` · `GoogleHealthPairedDeviceAPIURL` · `GoogleHealthPairedDeviceData` |
 
 ### Querying for one day vs. a date range
 
@@ -660,6 +665,152 @@ print('Age: ${p.age}, member since ${p.membershipStartDate}, '
 > Reading profile age requires `profileReadonly`. Reading unit / locale / time
 > zone settings requires `settingsReadonly`. Request **both** scopes for a
 > complete `GoogleHealthProfileData`.
+
+---
+
+### 11. Electrocardiogram (ECG)
+
+**Model:** `GoogleHealthElectrocardiogramData` — one reading per element.
+Each reading is an instant (`startTime == endTime`). Use `waveformMillivolts`
+together with `samplingFrequencyHertz` to plot the lead I waveform.
+
+> **API limitation:** the ECG endpoint only supports a `>=` lower-bound filter
+> on `start_time`. An upper bound (`< end`) returns HTTP 400. Both `day()` and
+> `dateRange()` filter from the given start date onward — results include all
+> readings at or after that time.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `String?` | Resource name |
+| `startTime` | `DateTime?` | Reading timestamp (equals `endTime`) |
+| `endTime` | `DateTime?` | Reading timestamp (equals `startTime`) |
+| `resultClassification` | `GoogleHealthEcgResultClassification` | Rhythm classification (see enum below) |
+| `waveformSamples` | `List<int>` | Raw lead I voltage samples |
+| `medicalDeviceInfo` | `GoogleHealthMedicalDeviceInfo?` | SaMD metadata for the recording device |
+| `beatsPerMinuteAvg` | `int?` | Average heart rate during the reading, bpm |
+| `samplingFrequencyHertz` | `int?` | Sampling frequency of waveform, Hz |
+| `millivoltsScalingFactor` | `int?` | Divide each raw sample by this to get mV |
+| `leadNumber` | `int?` | Number of leads used |
+| `waveformMillivolts` *(getter)* | `List<double>` | Samples converted to mV (empty if no scaling factor) |
+| `sampleDuration` *(getter)* | `Duration?` | Derived reading duration (`samples / hz`) |
+
+**`GoogleHealthEcgResultClassification` enum values:**
+`normalSinusRhythm` · `atrialFibrillation` · `inconclusive` ·
+`inconclusiveHighHeartRate` · `inconclusiveLowHeartRate` · `unreadable` ·
+`notAnalyzed` · `unspecified`
+
+**URL builders:**
+
+```dart
+GoogleHealthElectrocardiogramAPIURL.day(date: DateTime.now());
+GoogleHealthElectrocardiogramAPIURL.dateRange(startDate: start, endDate: end);
+```
+
+**Example:**
+
+```dart
+final result = await GoogleHealthElectrocardiogramDataManager(
+  credentials: credentials,
+  clientID: clientID,
+  clientSecret: clientSecret,
+).fetch(GoogleHealthElectrocardiogramAPIURL.day(date: DateTime.now()));
+
+for (final ecg in result.data) {
+  print('${ecg.startTime}: ${ecg.resultClassification.apiValue} '
+        '${ecg.beatsPerMinuteAvg} bpm  '
+        '${ecg.waveformMillivolts.length} samples @ ${ecg.samplingFrequencyHertz} Hz');
+}
+```
+
+---
+
+### 12. Irregular Rhythm Notification (IRN / AFib)
+
+**Model:** `GoogleHealthIrregularRhythmNotificationData` — one AFib alert session
+per element. Each session contains `alertWindows`, each with individual
+`heartBeats`.
+
+> **API limitation:** same one-sided `>=` filter as ECG — no upper bound.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `String?` | Resource name |
+| `startTime` | `DateTime?` | Session start time |
+| `endTime` | `DateTime?` | Session end time |
+| `alertWindows` | `List<GoogleHealthIrregularRhythmAlertWindow>` | Analysis windows that tested positive for AFib |
+| `medicalDeviceInfo` | `GoogleHealthMedicalDeviceInfo?` | SaMD metadata for the algorithm and device |
+
+**`GoogleHealthIrregularRhythmAlertWindow` fields:** `startTime` / `endTime` /
+`civilStartTime` / `civilEndTime` (RFC 3339 and civil variants), `positive`
+(always `true` in API data), `heartBeats` (`List<GoogleHealthIrregularRhythmHeartBeat>`).
+
+**`GoogleHealthIrregularRhythmHeartBeat` fields:** `physicalTime`, `civilTime`,
+`utcOffset`, `beatsPerMinute`.
+
+**`GoogleHealthMedicalDeviceInfo` fields** (shared with ECG):
+`algorithmVersion`, `serviceVersion`, `firmwareVersion`, `featureVersion`, `deviceModel`.
+
+**URL builders:**
+
+```dart
+GoogleHealthIrregularRhythmNotificationAPIURL.day(date: DateTime.now());
+GoogleHealthIrregularRhythmNotificationAPIURL.dateRange(startDate: start, endDate: end);
+```
+
+**Example:**
+
+```dart
+final result = await GoogleHealthIrregularRhythmNotificationDataManager(
+  credentials: credentials,
+  clientID: clientID,
+  clientSecret: clientSecret,
+).fetch(GoogleHealthIrregularRhythmNotificationAPIURL.dateRange(
+  startDate: DateTime.now().subtract(const Duration(days: 90)),
+  endDate: DateTime.now(),
+));
+
+for (final irn in result.data) {
+  print('Session ${irn.startTime}: ${irn.alertWindows.length} alert windows  '
+        'device: ${irn.medicalDeviceInfo?.deviceModel}');
+}
+```
+
+---
+
+### 13. Paired Devices
+
+**Model:** `GoogleHealthPairedDeviceData` — one record per device paired to the
+authenticated user.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `String?` | Resource name (`users/me/pairedDevices/{id}`) |
+| `deviceType` | `String?` | e.g. `SMARTWATCH`, `FITNESS_TRACKER` |
+| `batteryStatus` | `String?` | e.g. `LOW`, `MEDIUM`, `HIGH` |
+| `batteryLevel` | `int?` | Battery percentage (0–100) |
+| `lastSyncTime` | `String?` | RFC 3339 timestamp of most recent sync |
+| `deviceVersion` | `String?` | Firmware / software version string |
+| `macAddress` | `String?` | Device MAC address |
+| `features` | `List<String>` | Feature identifiers supported by the device |
+
+**URL builders:** `GoogleHealthPairedDeviceAPIURL.list` (static, no params) lists
+all paired devices. `GoogleHealthPairedDeviceAPIURL.get(name)` fetches a single
+device by its resource name.
+
+**Example:**
+
+```dart
+final result = await GoogleHealthPairedDeviceDataManager(
+  credentials: credentials,
+  clientID: clientID,
+  clientSecret: clientSecret,
+).fetch(GoogleHealthPairedDeviceAPIURL.list);
+
+for (final d in result.data) {
+  print('${d.deviceType}: ${d.batteryLevel}% battery, '
+        'last sync ${d.lastSyncTime}');
+}
+```
 
 ---
 

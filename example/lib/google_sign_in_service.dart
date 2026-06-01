@@ -77,6 +77,15 @@ class GoogleSignInService {
       );
     }
 
+    // Workaround for google_sign_in v7 Android "[16] Account reauth failed":
+    // a stale cached credential makes the first authenticate() fail. Clearing
+    // the local sign-in state first forces a fresh interactive auth. This does
+    // NOT remove the account from the device — it only drops the app's cached
+    // credential.
+    try {
+      await GoogleSignIn.instance.signOut();
+    } catch (_) {}
+
     final account = await GoogleSignIn.instance.authenticate();
     final serverAuth =
         await account.authorizationClient.authorizeServer(_scopes);

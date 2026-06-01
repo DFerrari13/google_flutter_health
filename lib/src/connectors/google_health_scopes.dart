@@ -38,6 +38,28 @@ class GoogleHealthScopes {
   static const String healthMetricsReadonly =
       'https://www.googleapis.com/auth/googlehealth.health_metrics_and_measurements.readonly';
 
+  /// Read and write access to electrocardiogram (ECG) data.
+  ///
+  /// ECG has its own dedicated scope — it is NOT covered by [healthMetrics].
+  static const String ecg = 'https://www.googleapis.com/auth/googlehealth.ecg';
+
+  /// Read-only access to electrocardiogram (ECG) data.
+  ///
+  /// Prefer this over [ecg] unless you need write access.
+  static const String ecgReadonly =
+      'https://www.googleapis.com/auth/googlehealth.ecg.readonly';
+
+  /// Read and write access to irregular rhythm notification (IRN/AFib) data.
+  ///
+  /// IRN has its own dedicated scope — it is NOT covered by [healthMetrics].
+  static const String irn = 'https://www.googleapis.com/auth/googlehealth.irn';
+
+  /// Read-only access to irregular rhythm notification (IRN/AFib) data.
+  ///
+  /// Prefer this over [irn] unless you need write access.
+  static const String irnReadonly =
+      'https://www.googleapis.com/auth/googlehealth.irn.readonly';
+
   /// Read and write access to sleep data.
   static const String sleep =
       'https://www.googleapis.com/auth/googlehealth.sleep';

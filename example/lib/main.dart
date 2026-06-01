@@ -3,12 +3,14 @@ import 'package:google_flutter_health/google_flutter_health.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'google_sign_in_service.dart';
+// Real credentials live in local_config.dart (gitignored). Copy
+// local_config.example.dart → local_config.dart and fill in your values.
+import 'local_config.dart' as config;
 
-// Replace with your Web OAuth 2.0 client ID from Google Cloud Console.
-// The client type must be "Web application" (not Android/iOS).
+// OAuth 2.0 "Web application" client (not Android/iOS).
 // See: https://console.cloud.google.com/apis/credentials
-const _webClientID = 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com';
-const _webClientSecret = 'YOUR_CLIENT_SECRET';
+const _webClientID = config.webClientID;
+const _webClientSecret = config.webClientSecret;
 
 const _scopes = <String>[
   GoogleHealthScopes.activityAndFitnessReadonly,
@@ -16,6 +18,10 @@ const _scopes = <String>[
   GoogleHealthScopes.sleepReadonly,
   GoogleHealthScopes.profileReadonly,
   GoogleHealthScopes.settingsReadonly,
+  // ECG and IRN each need their own dedicated scope — they are NOT covered by
+  // healthMetrics. Without these the fetch fails with a missing-scope error.
+  GoogleHealthScopes.ecgReadonly,
+  GoogleHealthScopes.irnReadonly,
 ];
 
 enum _QueryMode { day, dateRange }
@@ -66,75 +72,87 @@ class _HomePageState extends State<HomePage> {
 
   // ── Sleep ──────────────────────────────────────────────────────────────
   _QueryMode _sleepMode = _QueryMode.day;
-  DateTime _sleepDay = DateTime(2024, 12, 28);
-  DateTime _sleepStart = DateTime(2024, 12, 22);
-  DateTime _sleepEnd = DateTime(2024, 12, 28);
+  DateTime _sleepDay = DateTime(2026, 6, 1);
+  DateTime _sleepStart = DateTime(2026, 5, 25);
+  DateTime _sleepEnd = DateTime(2026, 6, 1);
   bool _sleepLoading = false;
   String? _sleepError;
 
   // ── Breathing Rate ─────────────────────────────────────────────────────
   _QueryMode _brMode = _QueryMode.day;
-  DateTime _brDay = DateTime(2024, 12, 28);
-  DateTime _brStart = DateTime(2024, 12, 22);
-  DateTime _brEnd = DateTime(2024, 12, 28);
+  DateTime _brDay = DateTime(2026, 6, 1);
+  DateTime _brStart = DateTime(2026, 5, 25);
+  DateTime _brEnd = DateTime(2026, 6, 1);
   bool _brLoading = false;
   String? _brError;
 
   // ── Activity Level ─────────────────────────────────────────────────────
   _QueryMode _actMode = _QueryMode.day;
-  DateTime _actDay = DateTime(2024, 12, 28);
-  DateTime _actStart = DateTime(2024, 12, 22);
-  DateTime _actEnd = DateTime(2024, 12, 28);
+  DateTime _actDay = DateTime(2026, 6, 1);
+  DateTime _actStart = DateTime(2026, 5, 25);
+  DateTime _actEnd = DateTime(2026, 6, 1);
   bool _actLoading = false;
   String? _actError;
 
   // ── Steps ──────────────────────────────────────────────────────────────
   _QueryMode _stepsMode = _QueryMode.day;
-  DateTime _stepsDay = DateTime(2024, 12, 28);
-  DateTime _stepsStart = DateTime(2024, 12, 22);
-  DateTime _stepsEnd = DateTime(2024, 12, 28);
+  DateTime _stepsDay = DateTime(2026, 6, 1);
+  DateTime _stepsStart = DateTime(2026, 5, 25);
+  DateTime _stepsEnd = DateTime(2026, 6, 1);
   bool _stepsLoading = false;
   String? _stepsError;
 
   // ── SpO2 ───────────────────────────────────────────────────────────────
   _QueryMode _spo2Mode = _QueryMode.day;
-  DateTime _spo2Day = DateTime(2024, 12, 28);
-  DateTime _spo2Start = DateTime(2024, 12, 22);
-  DateTime _spo2End = DateTime(2024, 12, 28);
+  DateTime _spo2Day = DateTime(2026, 6, 1);
+  DateTime _spo2Start = DateTime(2026, 5, 25);
+  DateTime _spo2End = DateTime(2026, 6, 1);
   bool _spo2Loading = false;
   String? _spo2Error;
 
   // ── HRV ────────────────────────────────────────────────────────────────
   _QueryMode _hrvMode = _QueryMode.day;
-  DateTime _hrvDay = DateTime(2024, 12, 28);
-  DateTime _hrvStart = DateTime(2024, 12, 22);
-  DateTime _hrvEnd = DateTime(2024, 12, 28);
+  DateTime _hrvDay = DateTime(2026, 6, 1);
+  DateTime _hrvStart = DateTime(2026, 5, 25);
+  DateTime _hrvEnd = DateTime(2026, 6, 1);
   bool _hrvLoading = false;
   String? _hrvError;
 
   // ── Resting HR ─────────────────────────────────────────────────────────
   _QueryMode _rhrMode = _QueryMode.day;
-  DateTime _rhrDay = DateTime(2024, 12, 28);
-  DateTime _rhrStart = DateTime(2024, 12, 22);
-  DateTime _rhrEnd = DateTime(2024, 12, 28);
+  DateTime _rhrDay = DateTime(2026, 6, 1);
+  DateTime _rhrStart = DateTime(2026, 5, 25);
+  DateTime _rhrEnd = DateTime(2026, 6, 1);
   bool _rhrLoading = false;
   String? _rhrError;
 
   // ── Skin Temp ──────────────────────────────────────────────────────────
   _QueryMode _tempMode = _QueryMode.day;
-  DateTime _tempDay = DateTime(2024, 12, 28);
-  DateTime _tempStart = DateTime(2024, 12, 22);
-  DateTime _tempEnd = DateTime(2024, 12, 28);
+  DateTime _tempDay = DateTime(2026, 6, 1);
+  DateTime _tempStart = DateTime(2026, 5, 25);
+  DateTime _tempEnd = DateTime(2026, 6, 1);
   bool _tempLoading = false;
   String? _tempError;
 
   // ── ECG ────────────────────────────────────────────────────────────────
   _QueryMode _ecgMode = _QueryMode.day;
-  DateTime _ecgDay = DateTime(2024, 12, 28);
-  DateTime _ecgStart = DateTime(2024, 12, 22);
-  DateTime _ecgEnd = DateTime(2024, 12, 28);
+  DateTime _ecgDay = DateTime(2026, 6, 1);
+  DateTime _ecgStart = DateTime(2026, 5, 25);
+  DateTime _ecgEnd = DateTime(2026, 6, 1);
   bool _ecgLoading = false;
   String? _ecgError;
+
+  // ── IRN (Irregular Rhythm Notification) ────────────────────────────────
+  _QueryMode _irnMode = _QueryMode.dateRange;
+  DateTime _irnDay = DateTime(2026, 6, 1);
+  DateTime _irnStart = DateTime(2026, 5, 25);
+  DateTime _irnEnd = DateTime(2026, 6, 1);
+  bool _irnLoading = false;
+  String? _irnError;
+
+  // ── Paired Devices ─────────────────────────────────────────────────────
+  bool _devicesLoading = false;
+  String? _devicesError;
 
   // ── Lifecycle ──────────────────────────────────────────────────────────
 
@@ -730,6 +748,82 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _fetchIrn() async {
+    final credentials = _auth.session.credentials;
+    if (credentials == null) return;
+    setState(() {
+      _irnLoading = true;
+      _irnError = null;
+    });
+    try {
+      final url = _irnMode == _QueryMode.day
+          ? GoogleHealthIrregularRhythmNotificationAPIURL.day(date: _irnDay)
+          : GoogleHealthIrregularRhythmNotificationAPIURL.dateRange(
+              startDate: _irnStart, endDate: _irnEnd);
+      debugPrint('[IRN DEBUG] URL: ${url.uri}');
+      final result = await GoogleHealthIrregularRhythmNotificationDataManager(
+        credentials: credentials,
+        clientID: _webClientID,
+        clientSecret: _webClientSecret,
+      ).fetch(url);
+      _auth.session.updateCredentials(result.credentials);
+      for (final d in result.data) {
+        debugPrint('[IRN DEBUG] session: $d');
+      }
+      if (!mounted) return;
+      showDialog<void>(
+        context: context,
+        builder: (_) => _IrnResultDialog(
+          label: _queryLabel(_irnMode, _irnDay, _irnStart, _irnEnd),
+          url: url.uri.toString(),
+          sessions: result.data,
+        ),
+      );
+    } on GoogleHealthException catch (e) {
+      setState(() => _irnError = e.message);
+    } catch (e) {
+      setState(() => _irnError = 'Unexpected error: $e');
+    } finally {
+      setState(() => _irnLoading = false);
+    }
+  }
+
+  Future<void> _fetchDevices() async {
+    final credentials = _auth.session.credentials;
+    if (credentials == null) return;
+    setState(() {
+      _devicesLoading = true;
+      _devicesError = null;
+    });
+    try {
+      final url = GoogleHealthPairedDeviceAPIURL.list;
+      debugPrint('[Devices DEBUG] URL: ${url.uri}');
+      final result = await GoogleHealthPairedDeviceDataManager(
+        credentials: credentials,
+        clientID: _webClientID,
+        clientSecret: _webClientSecret,
+      ).fetch(url);
+      _auth.session.updateCredentials(result.credentials);
+      for (final d in result.data) {
+        debugPrint('[Devices DEBUG] device: $d');
+      }
+      if (!mounted) return;
+      showDialog<void>(
+        context: context,
+        builder: (_) => _DevicesResultDialog(
+          url: url.uri.toString(),
+          devices: result.data,
+        ),
+      );
+    } on GoogleHealthException catch (e) {
+      setState(() => _devicesError = e.message);
+    } catch (e) {
+      setState(() => _devicesError = 'Unexpected error: $e');
+    } finally {
+      setState(() => _devicesLoading = false);
+    }
+  }
+
   // ── Build ──────────────────────────────────────────────────────────────
 
   @override
@@ -743,7 +837,7 @@ class _HomePageState extends State<HomePage> {
         actions: [
           if (isSignedIn)
             IconButton(
-              icon: const Icon(Icons.logout),
+              icon: const Icon(Icons.logout, color: Colors.white),
               tooltip: 'Sign out',
               onPressed: _logout,
             ),
@@ -1122,6 +1216,63 @@ class _HomePageState extends State<HomePage> {
                       if (_ecgError != null) ...[
                         const SizedBox(height: 4),
                         Text(_ecgError!,
+                            style: const TextStyle(
+                                color: Colors.red, fontSize: 12)),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // ── IRN ──────────────────────────────────────────────
+                  _SectionCard(
+                    title: 'Irregular Rhythm Notification (AFib)',
+                    color: Colors.deepOrange.shade50,
+                    children: [
+                      _buildQueryControls(
+                        mode: _irnMode,
+                        day: _irnDay,
+                        rangeStart: _irnStart,
+                        rangeEnd: _irnEnd,
+                        onModeChanged: (m) => setState(() => _irnMode = m),
+                        onDayChanged: (d) => setState(() => _irnDay = d),
+                        onStartChanged: (d) => setState(() => _irnStart = d),
+                        onEndChanged: (d) => setState(() => _irnEnd = d),
+                      ),
+                      const SizedBox(height: 4),
+                      if (_irnLoading)
+                        const Center(child: CircularProgressIndicator())
+                      else
+                        FilledButton.icon(
+                          onPressed: _fetchIrn,
+                          icon: const Icon(Icons.warning_amber),
+                          label: const Text('Fetch IRN'),
+                        ),
+                      if (_irnError != null) ...[
+                        const SizedBox(height: 4),
+                        Text(_irnError!,
+                            style: const TextStyle(
+                                color: Colors.red, fontSize: 12)),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // ── Paired Devices ───────────────────────────────────
+                  _SectionCard(
+                    title: 'Paired Devices',
+                    color: Colors.blueGrey.shade50,
+                    children: [
+                      if (_devicesLoading)
+                        const Center(child: CircularProgressIndicator())
+                      else
+                        FilledButton.icon(
+                          onPressed: _fetchDevices,
+                          icon: const Icon(Icons.watch),
+                          label: const Text('Fetch Paired Devices'),
+                        ),
+                      if (_devicesError != null) ...[
+                        const SizedBox(height: 4),
+                        Text(_devicesError!,
                             style: const TextStyle(
                                 color: Colors.red, fontSize: 12)),
                       ],
@@ -1832,4 +1983,108 @@ class _EcgWaveformPainter extends CustomPainter {
   bool shouldRepaint(_EcgWaveformPainter oldDelegate) =>
       oldDelegate.millivolts != millivolts ||
       oldDelegate.samplingFrequencyHertz != samplingFrequencyHertz;
+}
+
+class _IrnResultDialog extends StatelessWidget {
+  const _IrnResultDialog({
+    required this.label,
+    required this.url,
+    required this.sessions,
+  });
+
+  final String label;
+  final String url;
+  final List<GoogleHealthIrregularRhythmNotificationData> sessions;
+
+  String _fmtDateTime(DateTime? d) {
+    if (d == null) return 'null';
+    final l = d.toLocal();
+    return '${_fmtDate(l)} ${l.hour.toString().padLeft(2, '0')}:'
+        '${l.minute.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final buffer = StringBuffer();
+    buffer.writeln('URL:\n$url\n');
+    buffer.writeln('Sessions: ${sessions.length}\n');
+    for (var i = 0; i < sessions.length; i++) {
+      final s = sessions[i];
+      buffer.writeln('--- Session $i ---');
+      buffer.writeln('  start:        ${_fmtDateTime(s.startTime)}');
+      buffer.writeln('  end:          ${_fmtDateTime(s.endTime)}');
+      buffer.writeln('  alertWindows: ${s.alertWindows.length}');
+      for (var w = 0; w < s.alertWindows.length; w++) {
+        final win = s.alertWindows[w];
+        buffer.writeln('    [$w] ${_fmtDateTime(win.startTime)} → '
+            '${_fmtDateTime(win.endTime)}  '
+            'positive=${win.positive}  beats=${win.heartBeats.length}');
+      }
+      final mdi = s.medicalDeviceInfo;
+      if (mdi != null) {
+        buffer.writeln('  device:       ${mdi.deviceModel ?? '–'} '
+            '(algo ${mdi.algorithmVersion ?? '–'})');
+      }
+      buffer.writeln('  name: ${s.name}');
+    }
+    return AlertDialog(
+      title: Text('IRN — $label'),
+      content: SingleChildScrollView(
+        child: SelectableText(
+          buffer.toString(),
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+}
+
+class _DevicesResultDialog extends StatelessWidget {
+  const _DevicesResultDialog({
+    required this.url,
+    required this.devices,
+  });
+
+  final String url;
+  final List<GoogleHealthPairedDeviceData> devices;
+
+  @override
+  Widget build(BuildContext context) {
+    final buffer = StringBuffer();
+    buffer.writeln('URL:\n$url\n');
+    buffer.writeln('Devices: ${devices.length}\n');
+    for (var i = 0; i < devices.length; i++) {
+      final d = devices[i];
+      buffer.writeln('--- Device $i ---');
+      buffer.writeln('  deviceType:    ${d.deviceType}');
+      buffer.writeln('  batteryStatus: ${d.batteryStatus}');
+      buffer.writeln('  batteryLevel:  ${d.batteryLevel}%');
+      buffer.writeln('  lastSyncTime:  ${d.lastSyncTime}');
+      buffer.writeln('  deviceVersion: ${d.deviceVersion}');
+      buffer.writeln('  macAddress:    ${d.macAddress}');
+      buffer.writeln('  features:      ${d.features.join(', ')}');
+      buffer.writeln('  name: ${d.name}');
+    }
+    return AlertDialog(
+      title: const Text('Paired Devices'),
+      content: SingleChildScrollView(
+        child: SelectableText(
+          buffer.toString(),
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
 }

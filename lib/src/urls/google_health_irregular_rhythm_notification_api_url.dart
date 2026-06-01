@@ -6,58 +6,61 @@ import 'google_health_api_url.dart';
 /// All factories produce GET requests filtered on
 /// `irregular_rhythm_notification.interval.start_time` (UTC physical time).
 ///
-/// Requires the `googlehealth.health_metrics_and_measurements.readonly` scope.
+/// Like the ECG endpoint, IRN only supports the `>=` operator on `start_time`;
+/// an upper bound (`< end`) returns HTTP 400 "filtering by time is not
+/// supported". Every factory therefore filters on a lower bound only —
+/// results include all sessions at or after the start time.
+///
+/// Requires the `googlehealth.irn.readonly` scope
+/// ([GoogleHealthScopes.irnReadonly]).
 class GoogleHealthIrregularRhythmNotificationAPIURL extends GoogleHealthAPIURL {
   const GoogleHealthIrregularRhythmNotificationAPIURL._({required super.uri})
       : super(method: GoogleHealthRequestMethod.get);
 
   static const String dataType = 'irregular-rhythm-notification';
 
-  /// Sessions whose start_time falls on [date] (UTC midnight–midnight).
+  /// Sessions whose start_time is at or after [date] (UTC midnight).
+  ///
+  /// The API ignores any upper bound, so this returns all sessions from
+  /// midnight of [date] onward, not just that calendar day.
   factory GoogleHealthIrregularRhythmNotificationAPIURL.day({
     required DateTime date,
   }) {
     final start = DateTime.utc(date.year, date.month, date.day);
-    final end = start.add(const Duration(days: 1));
     return GoogleHealthIrregularRhythmNotificationAPIURL._build(
       startTime: start,
-      endTime: end,
     );
   }
 
-  /// Sessions whose start_time falls in the given UTC date range (inclusive).
+  /// Sessions whose start_time is at or after [startDate] (UTC midnight).
+  ///
+  /// [endDate] is accepted for API symmetry but ignored — the IRN endpoint
+  /// does not support an upper time bound.
   factory GoogleHealthIrregularRhythmNotificationAPIURL.dateRange({
     required DateTime startDate,
     required DateTime endDate,
   }) {
     final start = DateTime.utc(startDate.year, startDate.month, startDate.day);
-    final end = DateTime.utc(endDate.year, endDate.month, endDate.day)
-        .add(const Duration(days: 1));
     return GoogleHealthIrregularRhythmNotificationAPIURL._build(
       startTime: start,
-      endTime: end,
     );
   }
 
-  /// Sessions overlapping the given arbitrary UTC time window.
+  /// Sessions whose start_time is at or after [startTime].
   factory GoogleHealthIrregularRhythmNotificationAPIURL.intraday({
     required DateTime startTime,
-    required DateTime endTime,
   }) {
     return GoogleHealthIrregularRhythmNotificationAPIURL._build(
       startTime: startTime,
-      endTime: endTime,
     );
   }
 
   static GoogleHealthIrregularRhythmNotificationAPIURL _build({
     required DateTime startTime,
-    required DateTime endTime,
   }) {
-    final filter = buildTimeFilter(
+    final filter = buildStartTimeFilter(
       fieldPath: 'irregular_rhythm_notification.interval.start_time',
       startTime: startTime,
-      endTime: endTime,
     );
     final uri = Uri.https(
       'health.googleapis.com',
