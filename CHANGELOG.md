@@ -1,3 +1,31 @@
+## 0.7.1
+
+### Fixed
+
+- **Auth hardening.** OAuth and credential handling made resilient to flaky
+  networks and clock skew:
+  - Every API request and token call now has a 30-second timeout; network
+    failures and timeouts surface as `GoogleHealthNetworkException` instead of
+    hanging `fetch()` or escaping as a raw `ClientException`.
+  - `fetch()` now forces one token refresh and retries when the API returns an
+    unexpected `401` on a locally-valid token (clock skew or server-side
+    invalidation).
+  - Token refresh adopts a rotated `refresh_token` when Google returns one, so
+    persisted credentials no longer go stale after rotation.
+  - `GoogleHealthSession.logout()` always clears the local session even if the
+    revoke request fails.
+  - `unauthorize()` revokes the refresh token (revoking the whole grant), so
+    logout works even when the access token has already expired.
+  - All OAuth/identity responses are now decoded defensively — malformed bodies
+    and redirect URLs raise typed exceptions with the server error detail.
+
+### Changed
+
+- Example app: replaced the AppBar logout `IconButton` (invisible against the
+  bar's surface tint) with a labelled red **Logout** button; tolerant secure-
+  storage loading and serialized credential writes; Android Gradle toolchain
+  bumped (Gradle 8.14, AGP 8.11.1, Kotlin 2.2.20).
+
 ## 0.7.0
 
 ### Added
