@@ -52,8 +52,10 @@ class GoogleHealthSession extends ChangeNotifier {
   /// request is best-effort — if the network call fails the local session is
   /// still cleared.
   Future<void> logout() async {
-    if (_credentials != null) {
+    if (_credentials == null) return;
+    try {
       await GoogleHealthConnector.unauthorize(credentials: _credentials!);
+    } finally {
       _credentials = null;
       notifyListeners();
     }

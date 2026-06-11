@@ -179,7 +179,15 @@ class _HomePageState extends State<HomePage> {
           });
         }
       }
-      setState(() => _signInReady = true);
+      if (mounted) setState(() => _signInReady = true);
+    }).catchError((Object e) {
+      // Never leave the UI stuck on the spinner: surface the failure and
+      // still show the sign-in button so the user can retry.
+      if (!mounted) return;
+      setState(() {
+        _signInReady = true;
+        _error = 'Initialization failed: $e';
+      });
     });
   }
 

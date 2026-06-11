@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
@@ -28,6 +29,12 @@ import '../urls/google_health_api_url.dart';
 /// // Save result.credentials — they may have been refreshed.
 /// ```
 abstract class GoogleHealthDataManager<T> {
+  /// Maximum duration for any single HTTP request before it is aborted.
+  ///
+  /// A request that exceeds this limit throws [GoogleHealthNetworkException]
+  /// instead of hanging the calling `fetch()` indefinitely.
+  static const Duration requestTimeout = Duration(seconds: 30);
+
   /// The current credentials used to authorise API requests.
   ///
   /// May be refreshed inside [fetch]. Always persist the credentials returned
@@ -72,13 +79,22 @@ abstract class GoogleHealthDataManager<T> {
   /// Throws [GoogleHealthTokenExpiredException] if the token is expired and
   /// refresh fails (e.g. the refresh token has been revoked).
   /// Throws [GoogleHealthRateLimitException] on HTTP 429.
+  /// Throws [GoogleHealthNetworkException] on network failure or timeout.
   /// Throws [GoogleHealthDataTypeException] on other HTTP errors.
   /// Throws [GoogleHealthDataException] if the response body cannot be parsed.
   Future<({List<T> data, GoogleHealthCredentials credentials})> fetch(
     GoogleHealthAPIURL url,
   ) async {
-    final creds = await refreshIfNeeded(credentials);
-    final response = await executeRequest(url: url, credentials: creds);
+    var creds = await refreshIfNeeded(credentials);
+    var response = await executeRequest(url: url, credentials: creds);
+
+    // A 401 despite a locally-valid expiry means the local clock and the
+    // server disagree, or the token was invalidated server-side. Force one
+    // refresh and retry before giving up.
+    if (response.statusCode == 401) {
+      creds = await forceRefresh(creds);
+      response = await executeRequest(url: url, credentials: creds);
+    }
     checkResponse(response);
 
     if (kDebugMode) {
@@ -117,25 +133,55 @@ abstract class GoogleHealthDataManager<T> {
     GoogleHealthCredentials creds,
   ) async {
     if (!creds.isExpired) return creds;
-    final response = await httpClient.post(
-      Uri.parse('https://oauth2.googleapis.com/token'),
-      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: {
-        'grant_type': 'refresh_token',
-        'refresh_token': creds.refreshToken,
-        'client_id': clientID,
-        'client_secret': clientSecret,
-      },
-    );
-    if (response.statusCode != 200) {
-      throw const GoogleHealthTokenExpiredException(
-        'Access token expired and refresh failed.',
+    return forceRefresh(creds);
+  }
+
+  /// Exchanges the refresh token for a new access token unconditionally.
+  ///
+  /// Used by [fetch] both for proactive refresh (via [refreshIfNeeded]) and
+  /// as a recovery step when the API rejects a locally-valid token with 401.
+  ///
+  /// Throws [GoogleHealthTokenExpiredException] if the token endpoint rejects
+  /// the refresh token, [GoogleHealthNetworkException] on network failure.
+  @protected
+  Future<GoogleHealthCredentials> forceRefresh(
+    GoogleHealthCredentials creds,
+  ) async {
+    final http.Response response;
+    try {
+      response = await httpClient.post(
+        Uri.parse('https://oauth2.googleapis.com/token'),
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: {
+          'grant_type': 'refresh_token',
+          'refresh_token': creds.refreshToken,
+          'client_id': clientID,
+          'client_secret': clientSecret,
+        },
+      ).timeout(requestTimeout);
+    } on http.ClientException catch (e) {
+      throw GoogleHealthNetworkException('Token refresh failed: $e');
+    } on TimeoutException {
+      throw GoogleHealthNetworkException(
+        'Token refresh timed out after ${requestTimeout.inSeconds}s.',
       );
     }
-    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode != 200) {
+      throw GoogleHealthTokenExpiredException(
+        'Access token refresh failed (HTTP ${response.statusCode}): '
+        '${_oauthErrorDetail(response.body)}',
+      );
+    }
+    final Map<String, dynamic> json;
+    try {
+      json = jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      throw GoogleHealthDataException('Failed to decode token response: $e');
+    }
     return GoogleHealthCredentials(
       accessToken: json['access_token'] as String,
-      refreshToken: creds.refreshToken,
+      // Google may rotate the refresh token; adopt the new one when present.
+      refreshToken: json['refresh_token'] as String? ?? creds.refreshToken,
       accessTokenExpirationDateTime: DateTime.now().toUtc().add(
             Duration(seconds: (json['expires_in'] as num).toInt()),
           ),
@@ -144,28 +190,58 @@ abstract class GoogleHealthDataManager<T> {
     );
   }
 
+  /// Extracts `error_description` / `error` from an OAuth error body, falling
+  /// back to the raw body when it is not JSON (e.g. an HTML proxy page).
+  static String _oauthErrorDetail(String body) {
+    try {
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      return json['error_description'] as String? ??
+          json['error'] as String? ??
+          body;
+    } catch (_) {
+      return body.length > 200 ? '${body.substring(0, 200)}…' : body;
+    }
+  }
+
   /// Dispatches the HTTP request using [GoogleHealthAPIURL.method].
   ///
   /// GET requests send only the `Authorization` header. POST requests send
   /// `Authorization` plus `Content-Type: application/json` with
   /// [GoogleHealthAPIURL.body] as the JSON body.
+  ///
+  /// Throws [GoogleHealthNetworkException] on network failure or timeout.
   @protected
   Future<http.Response> executeRequest({
     required GoogleHealthAPIURL url,
     required GoogleHealthCredentials credentials,
-  }) {
+  }) async {
     final headers = <String, String>{
       'Authorization': 'Bearer ${credentials.accessToken}',
     };
-    if (url.method == GoogleHealthRequestMethod.post) {
-      headers['Content-Type'] = 'application/json';
-      return httpClient.post(
-        url.uri,
-        headers: headers,
-        body: jsonEncode(url.body ?? const <String, dynamic>{}),
+    try {
+      if (url.method == GoogleHealthRequestMethod.post) {
+        headers['Content-Type'] = 'application/json';
+        return await httpClient
+            .post(
+              url.uri,
+              headers: headers,
+              body: jsonEncode(url.body ?? const <String, dynamic>{}),
+            )
+            .timeout(requestTimeout);
+      }
+      return await httpClient
+          .get(url.uri, headers: headers)
+          .timeout(requestTimeout);
+    } on http.ClientException catch (e) {
+      throw GoogleHealthNetworkException(
+        'Network error calling ${url.uri.path}: $e',
+      );
+    } on TimeoutException {
+      throw GoogleHealthNetworkException(
+        'Request to ${url.uri.path} timed out after '
+        '${requestTimeout.inSeconds}s.',
       );
     }
-    return httpClient.get(url.uri, headers: headers);
   }
 
   /// Maps HTTP status codes to [GoogleHealthException] subclasses.

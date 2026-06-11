@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -13,6 +14,9 @@ import 'google_health_credentials.dart';
 /// by the library; persist them yourself (e.g. with `flutter_secure_storage`).
 class GoogleHealthConnector {
   GoogleHealthConnector._();
+
+  /// Maximum duration for any single HTTP request before it is aborted.
+  static const Duration requestTimeout = Duration(seconds: 30);
 
   /// Opens a browser or web-view for the user to authorise the app.
   ///
@@ -51,7 +55,12 @@ class GoogleHealthConnector {
     final redirectResult = await launchBrowserAndGetRedirect(authUri);
     if (redirectResult == null) return null;
 
-    final redirected = Uri.parse(redirectResult);
+    final Uri redirected;
+    try {
+      redirected = Uri.parse(redirectResult);
+    } on FormatException catch (e) {
+      throw GoogleHealthAuthException('Malformed redirect URL: $e');
+    }
 
     if (redirected.queryParameters['state'] != state) {
       throw const GoogleHealthAuthException(
@@ -89,7 +98,8 @@ class GoogleHealthConnector {
   ///   an empty string for codes issued via Google Sign-In's `serverAuthCode`.
   /// - [scopes]: Scopes that were granted — stored in the returned credentials.
   ///
-  /// Throws [GoogleHealthAuthException] on failure.
+  /// Throws [GoogleHealthAuthException] on failure and
+  /// [GoogleHealthNetworkException] on network failure or timeout.
   static Future<GoogleHealthCredentials> exchangeAuthCode({
     required String code,
     required String clientID,
@@ -97,26 +107,46 @@ class GoogleHealthConnector {
     required String redirectUri,
     required List<String> scopes,
   }) async {
-    final tokenResponse = await http.post(
-      Uri.parse('https://oauth2.googleapis.com/token'),
-      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: {
-        'grant_type': 'authorization_code',
-        'code': code,
-        'client_id': clientID,
-        'client_secret': clientSecret,
-        'redirect_uri': redirectUri,
-      },
-    );
-
-    if (tokenResponse.statusCode != 200) {
-      final json = jsonDecode(tokenResponse.body) as Map<String, dynamic>;
-      throw GoogleHealthAuthException(
-        json['error_description'] as String? ?? 'Token exchange failed.',
+    final http.Response tokenResponse;
+    try {
+      tokenResponse = await http.post(
+        Uri.parse('https://oauth2.googleapis.com/token'),
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: {
+          'grant_type': 'authorization_code',
+          'code': code,
+          'client_id': clientID,
+          'client_secret': clientSecret,
+          'redirect_uri': redirectUri,
+        },
+      ).timeout(requestTimeout);
+    } on http.ClientException catch (e) {
+      throw GoogleHealthNetworkException('Token exchange failed: $e');
+    } on TimeoutException {
+      throw GoogleHealthNetworkException(
+        'Token exchange timed out after ${requestTimeout.inSeconds}s.',
       );
     }
 
-    final json = jsonDecode(tokenResponse.body) as Map<String, dynamic>;
+    if (tokenResponse.statusCode != 200) {
+      throw GoogleHealthAuthException(
+        'Token exchange failed (HTTP ${tokenResponse.statusCode}): '
+        '${_oauthErrorDetail(tokenResponse.body)}',
+      );
+    }
+
+    final Map<String, dynamic> json;
+    try {
+      json = jsonDecode(tokenResponse.body) as Map<String, dynamic>;
+    } catch (e) {
+      throw GoogleHealthAuthException('Malformed token response: $e');
+    }
+    final accessToken = json['access_token'] as String?;
+    if (accessToken == null) {
+      throw const GoogleHealthAuthException(
+        'Token response did not contain an access_token.',
+      );
+    }
     final refreshToken = json['refresh_token'] as String?;
     if (refreshToken == null) {
       throw const GoogleHealthAuthException(
@@ -126,7 +156,7 @@ class GoogleHealthConnector {
     }
 
     final partial = GoogleHealthCredentials(
-      accessToken: json['access_token'] as String,
+      accessToken: accessToken,
       refreshToken: refreshToken,
       accessTokenExpirationDateTime: DateTime.now().toUtc().add(
             Duration(seconds: (json['expires_in'] as num).toInt()),
@@ -168,21 +198,37 @@ class GoogleHealthConnector {
     required String clientID,
     required String clientSecret,
   }) async {
-    final response = await http.post(
-      Uri.parse('https://oauth2.googleapis.com/token'),
-      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: {
-        'grant_type': 'refresh_token',
-        'refresh_token': credentials.refreshToken,
-        'client_id': clientID,
-        'client_secret': clientSecret,
-      },
-    );
+    final http.Response response;
+    try {
+      response = await http.post(
+        Uri.parse('https://oauth2.googleapis.com/token'),
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: {
+          'grant_type': 'refresh_token',
+          'refresh_token': credentials.refreshToken,
+          'client_id': clientID,
+          'client_secret': clientSecret,
+        },
+      ).timeout(requestTimeout);
+    } on http.ClientException {
+      return null;
+    } on TimeoutException {
+      return null;
+    }
     if (response.statusCode != 200) return null;
-    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    final Map<String, dynamic> json;
+    try {
+      json = jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+    final accessToken = json['access_token'] as String?;
+    if (accessToken == null) return null;
     return GoogleHealthCredentials(
-      accessToken: json['access_token'] as String,
-      refreshToken: credentials.refreshToken,
+      accessToken: accessToken,
+      // Google may rotate the refresh token; adopt the new one when present.
+      refreshToken:
+          json['refresh_token'] as String? ?? credentials.refreshToken,
       accessTokenExpirationDateTime: DateTime.now().toUtc().add(
             Duration(seconds: (json['expires_in'] as num).toInt()),
           ),
@@ -205,13 +251,24 @@ class GoogleHealthConnector {
   static Future<String?> getUserId({
     required GoogleHealthCredentials credentials,
   }) async {
-    final response = await http.get(
-      Uri.https('health.googleapis.com', '/v4/users/me/identity'),
-      headers: {'Authorization': 'Bearer ${credentials.accessToken}'},
-    );
+    final http.Response response;
+    try {
+      response = await http.get(
+        Uri.https('health.googleapis.com', '/v4/users/me/identity'),
+        headers: {'Authorization': 'Bearer ${credentials.accessToken}'},
+      ).timeout(requestTimeout);
+    } on http.ClientException {
+      return null;
+    } on TimeoutException {
+      return null;
+    }
     if (response.statusCode != 200) return null;
-    final json = jsonDecode(response.body) as Map<String, dynamic>;
-    return json['healthUserId'] as String?;
+    try {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      return json['healthUserId'] as String?;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Revokes the access token and refresh token for the given credentials.
@@ -225,16 +282,37 @@ class GoogleHealthConnector {
   static Future<bool> unauthorize({
     required GoogleHealthCredentials credentials,
   }) async {
-    final response = await http.post(
-      Uri.parse('https://oauth2.googleapis.com/revoke'),
-      body: {'token': credentials.accessToken},
-    );
-    return response.statusCode == 200;
+    try {
+      // Revoking the refresh token revokes the whole grant (access token
+      // included) and works even when the access token has already expired.
+      final response = await http.post(
+        Uri.parse('https://oauth2.googleapis.com/revoke'),
+        body: {'token': credentials.refreshToken},
+      ).timeout(requestTimeout);
+      return response.statusCode == 200;
+    } on http.ClientException {
+      return false;
+    } on TimeoutException {
+      return false;
+    }
   }
 
   static String _generateState() {
     final random = Random.secure();
     final bytes = List<int>.generate(16, (_) => random.nextInt(256));
     return base64Url.encode(bytes);
+  }
+
+  /// Extracts `error_description` / `error` from an OAuth error body, falling
+  /// back to the raw body when it is not JSON (e.g. an HTML proxy page).
+  static String _oauthErrorDetail(String body) {
+    try {
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      return json['error_description'] as String? ??
+          json['error'] as String? ??
+          body;
+    } catch (_) {
+      return body.length > 200 ? '${body.substring(0, 200)}…' : body;
+    }
   }
 }

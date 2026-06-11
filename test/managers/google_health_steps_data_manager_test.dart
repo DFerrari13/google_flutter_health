@@ -133,6 +133,88 @@ void main() {
       );
     });
 
+    test('fetch() force-refreshes and retries once on unexpected 401',
+        () async {
+      var dataCalls = 0;
+      final client = MockClient((request) async {
+        if (request.url.host == 'oauth2.googleapis.com') {
+          return http.Response(
+            jsonEncode({
+              'access_token': 'recovered_token',
+              'expires_in': 3600,
+              'token_type': 'Bearer',
+            }),
+            200,
+          );
+        }
+        dataCalls++;
+        if (request.headers['Authorization'] == 'Bearer recovered_token') {
+          return http.Response(jsonEncode({'rollupDataPoints': []}), 200);
+        }
+        // Token is locally valid but rejected server-side (clock skew /
+        // server-side invalidation).
+        return http.Response('Unauthorized', 401);
+      });
+      final manager = GoogleHealthStepsDataManager(
+        credentials: credentials,
+        clientID: 'client_id',
+        clientSecret: 'client_secret',
+        httpClient: client,
+      );
+      final result = await manager.fetch(
+        GoogleHealthStepsAPIURL.day(date: DateTime(2025, 6, 12)),
+      );
+      expect(dataCalls, 2);
+      expect(result.credentials.accessToken, 'recovered_token');
+    });
+
+    test('fetch() adopts a rotated refresh token from the token endpoint',
+        () async {
+      final client = MockClient((request) async {
+        if (request.url.host == 'oauth2.googleapis.com') {
+          return http.Response(
+            jsonEncode({
+              'access_token': 'new_access_token',
+              'refresh_token': 'rotated_refresh_token',
+              'expires_in': 3600,
+              'token_type': 'Bearer',
+            }),
+            200,
+          );
+        }
+        return http.Response(jsonEncode({'rollupDataPoints': []}), 200);
+      });
+      final manager = GoogleHealthStepsDataManager(
+        credentials: expiredCredentials,
+        clientID: 'client_id',
+        clientSecret: 'client_secret',
+        httpClient: client,
+      );
+      final result = await manager.fetch(
+        GoogleHealthStepsAPIURL.day(date: DateTime(2025, 6, 12)),
+      );
+      expect(result.credentials.refreshToken, 'rotated_refresh_token');
+    });
+
+    test('fetch() wraps network failures in GoogleHealthNetworkException',
+        () async {
+      final client = MockClient(
+        (_) async => throw http.ClientException('Connection failed'),
+      );
+      final manager = GoogleHealthStepsDataManager(
+        credentials: credentials,
+        clientID: 'client_id',
+        clientSecret: 'client_secret',
+        httpClient: client,
+      );
+      expect(
+        () => manager.fetch(
+          GoogleHealthStepsAPIURL.day(date: DateTime(2025, 6, 12)),
+        ),
+        throwsA(isA<GoogleHealthNetworkException>()),
+      );
+    });
+
     test('fetch() throws GoogleHealthRateLimitException on 429', () async {
       final client = MockClient((_) async => http.Response(
             'Rate limit exceeded',

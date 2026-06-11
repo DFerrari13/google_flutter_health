@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -115,9 +114,10 @@ class GoogleSignInService {
     try {
       await GoogleSignIn.instance.signOut();
     } catch (_) {}
-    // Listener fires on session.logout() and deletes storage, but if the
-    // listener hasn't run yet (e.g. microtask timing), delete explicitly.
-    await _storage.delete(key: _storageKey);
+    // The listener queued a storage delete when session.logout() cleared the
+    // credentials. Wait for the queue to drain so no earlier in-flight write
+    // can land after the delete and resurrect stale credentials.
+    await _persistQueue;
   }
 
   /// Call from `State.dispose()` to detach the storage listener.
@@ -127,27 +127,51 @@ class GoogleSignInService {
   }
 
   Future<void> _loadCredentials() async {
-    final raw = await _storage.read(key: _storageKey);
+    final String? raw;
+    try {
+      raw = await _storage.read(key: _storageKey);
+    } catch (_) {
+      // Secure storage can fail to decrypt (e.g. after a backup/restore on
+      // Android). Treat it as "not signed in" instead of crashing startup.
+      return;
+    }
     if (raw == null) return;
-    final creds = GoogleHealthCredentials.fromJson(
-      jsonDecode(raw) as Map<String, dynamic>,
-    );
-    session.updateCredentials(creds);
+    try {
+      final creds = GoogleHealthCredentials.fromJson(
+        jsonDecode(raw) as Map<String, dynamic>,
+      );
+      session.updateCredentials(creds);
+    } catch (_) {
+      // Corrupt or legacy payload — drop it so the next launch starts clean.
+      await _storage.delete(key: _storageKey);
+    }
   }
+
+  /// Pending persistence work. Writes are chained on this future so they
+  /// reach storage in the same order the credentials changed — a slow older
+  /// write can never overwrite a newer one (or a logout delete).
+  Future<void> _persistQueue = Future<void>.value();
 
   void _persistCredentials() {
-    unawaited(_doPersist());
+    // Snapshot now: by the time the queued write runs, session.credentials
+    // may already have changed again.
+    final creds = session.credentials;
+    _persistQueue = _persistQueue.then((_) => _doPersist(creds));
   }
 
-  Future<void> _doPersist() async {
-    final creds = session.credentials;
-    if (creds == null) {
-      await _storage.delete(key: _storageKey);
-    } else {
-      await _storage.write(
-        key: _storageKey,
-        value: jsonEncode(creds.toJson()),
-      );
+  Future<void> _doPersist(GoogleHealthCredentials? creds) async {
+    try {
+      if (creds == null) {
+        await _storage.delete(key: _storageKey);
+      } else {
+        await _storage.write(
+          key: _storageKey,
+          value: jsonEncode(creds.toJson()),
+        );
+      }
+    } catch (_) {
+      // Persistence is best-effort; the in-memory session stays valid and the
+      // next credential change retries the write.
     }
   }
 }
